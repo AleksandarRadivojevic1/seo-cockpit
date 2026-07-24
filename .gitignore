@@ -1,3 +1,24 @@
+# --- seo-cockpit: never commit secrets or the database ---
+secrets/
+**/secrets/
+*.db
+*.sqlite
+*.sqlite3
+data/
+service-account*.json
+*service-account*.json
+.env
+.env.*
+
+
+# Python (collector)
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+
 # Logs
 logs
 *.log
