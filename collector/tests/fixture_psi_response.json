@@ -1,0 +1,14 @@
+{
+  "lighthouseResult": {
+    "audits": {
+      "largest-contentful-paint": {
+        "id": "largest-contentful-paint",
+        "numericValue": 1834.2
+      },
+      "cumulative-layout-shift": {
+        "id": "cumulative-layout-shift",
+        "numericValue": 0.021
+      }
+    }
+  }
+}

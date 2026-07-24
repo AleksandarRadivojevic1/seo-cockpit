@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": 404,
+    "message": "Chrome UX Report data not found",
+    "status": "NOT_FOUND"
+  }
+}
