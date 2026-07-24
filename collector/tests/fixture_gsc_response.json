@@ -1,0 +1,26 @@
+{
+  "totals": {
+    "rows": [
+      {"keys": ["2026-07-01"], "clicks": 120, "impressions": 3400, "ctr": 0.0352941176, "position": 14.2},
+      {"keys": ["2026-07-02"], "clicks": 98, "impressions": 3100, "ctr": 0.0316129032, "position": 14.8}
+    ],
+    "responseAggregationType": "byProperty"
+  },
+  "by_query": {
+    "rows": [
+      {"keys": ["2026-07-01", "seo cockpit"], "clicks": 40, "impressions": 500, "ctr": 0.08, "position": 3.2},
+      {"keys": ["2026-07-01", "gsc collector"], "clicks": 25, "impressions": 400, "ctr": 0.0625, "position": 5.1},
+      {"keys": ["2026-07-01", "search console api"], "clicks": 10, "impressions": 200, "ctr": 0.05, "position": 8.7},
+      {"keys": ["2026-07-02", "seo cockpit"], "clicks": 30, "impressions": 450, "ctr": 0.0666666667, "position": 3.5}
+    ],
+    "responseAggregationType": "byProperty"
+  },
+  "by_page": {
+    "rows": [
+      {"keys": ["2026-07-01", "https://example.com/"], "clicks": 60, "impressions": 1500, "ctr": 0.04, "position": 6.4},
+      {"keys": ["2026-07-01", "https://example.com/blog/gsc-api"], "clicks": 20, "impressions": 600, "ctr": 0.0333333333, "position": 9.1},
+      {"keys": ["2026-07-02", "https://example.com/"], "clicks": 55, "impressions": 1400, "ctr": 0.0392857143, "position": 6.7}
+    ],
+    "responseAggregationType": "byProperty"
+  }
+}
