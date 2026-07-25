@@ -14,10 +14,8 @@ interface EmptyStateProps {
 export default function EmptyState({ title, description, children }: EmptyStateProps) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-1 py-6 text-center">
-      <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{title}</p>
-      {description ? (
-        <p className="text-xs text-zinc-400 dark:text-zinc-500">{description}</p>
-      ) : null}
+      <p className="text-sm font-medium text-muted-foreground">{title}</p>
+      {description ? <p className="text-xs text-muted-foreground/70">{description}</p> : null}
       {children}
     </div>
   );
