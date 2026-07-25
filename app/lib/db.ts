@@ -27,6 +27,16 @@ export interface SiteConfig {
   brandToken: string;
 }
 
+export interface PageRow {
+  site: string;
+  date: string;
+  page: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
 export interface CwvRow {
   site: string;
   url: string;
@@ -89,6 +99,23 @@ export function queryRowsInRange(
     .prepare<[string, string, string], QueryRow>(
       `SELECT site, date, query, clicks, impressions, ctr, position
        FROM query_daily
+       WHERE site = ? AND date BETWEEN ? AND ?
+       ORDER BY date`
+    )
+    .all(site, start, end);
+}
+
+/** page_daily rows for a site within an inclusive date range, ordered by date. */
+export function pageRowsInRange(
+  site: string,
+  start: string,
+  end: string,
+  db: Database.Database = getDb()
+): PageRow[] {
+  return db
+    .prepare<[string, string, string], PageRow>(
+      `SELECT site, date, page, clicks, impressions, ctr, position
+       FROM page_daily
        WHERE site = ? AND date BETWEEN ? AND ?
        ORDER BY date`
     )

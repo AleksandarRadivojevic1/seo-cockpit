@@ -66,13 +66,13 @@ export function aggregateWindow(rows: QueryRow[]): Map<string, AggregatedQuery> 
 }
 
 /** Parses a "YYYY-MM-DD" string into a UTC-midnight Date. */
-function parseISODateUTC(iso: string): Date {
+export function parseISODateUTC(iso: string): Date {
   const [year, month, day] = iso.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, day));
 }
 
 /** Formats a Date as "YYYY-MM-DD" using its UTC components. */
-function formatISODateUTC(date: Date): string {
+export function formatISODateUTC(date: Date): string {
   const year = date.getUTCFullYear();
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
   const day = String(date.getUTCDate()).padStart(2, "0");
@@ -80,7 +80,7 @@ function formatISODateUTC(date: Date): string {
 }
 
 /** Adds (or subtracts, for negative values) `days` to an ISO date string, in UTC. */
-function addDaysUTC(iso: string, days: number): string {
+export function addDaysUTC(iso: string, days: number): string {
   const date = parseISODateUTC(iso);
   date.setUTCDate(date.getUTCDate() + days);
   return formatISODateUTC(date);

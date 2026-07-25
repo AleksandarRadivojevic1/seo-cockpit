@@ -10,6 +10,7 @@ import {
   latestTotalsDate,
   listSiteConfigs,
   listSites,
+  pageRowsInRange,
   queryRowsInRange,
   siteConfigBySlug,
   totalsInRange,
@@ -64,6 +65,9 @@ beforeAll(() => {
   const insertQuery = writeDb.prepare(
     "INSERT INTO query_daily (site, date, query, clicks, impressions, ctr, position) VALUES (?, ?, ?, ?, ?, ?, ?)"
   );
+  const insertPage = writeDb.prepare(
+    "INSERT INTO page_daily (site, date, page, clicks, impressions, ctr, position) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  );
   const insertCwv = writeDb.prepare(
     "INSERT INTO cwv_snapshots (site, url, captured_at, lcp_p75, inp_p75, cls_p75, source, form_factor) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
   );
@@ -80,13 +84,17 @@ beforeAll(() => {
   for (const date of inRangeDates) {
     insertTotals.run(SITE_A, date, 10, 100, 0.1, 5.5);
     insertQuery.run(SITE_A, date, "keyword one", 3, 30, 0.1, 4.2);
+    insertPage.run(SITE_A, date, "/page-one", 2, 20, 0.1, 3.5);
   }
   for (const date of outOfRangeDates) {
     insertTotals.run(SITE_A, date, 999, 9999, 0.9, 1.1);
     insertQuery.run(SITE_A, date, "keyword one", 999, 9999, 0.9, 1.1);
+    insertPage.run(SITE_A, date, "/page-one", 999, 9999, 0.9, 1.1);
   }
 
   // SITE_B rows on the same in-range dates, to prove site filtering works.
+  // SITE_B deliberately has no page_daily rows at all, to prove
+  // pageRowsInRange returns [] for a site with no page rows.
   for (const date of inRangeDates) {
     insertTotals.run(SITE_B, date, 20, 200, 0.2, 6.5);
     insertQuery.run(SITE_B, date, "another keyword", 5, 50, 0.2, 3.3);
@@ -134,6 +142,30 @@ describe("queryRowsInRange", () => {
     const db = getDb(fixturePath);
     const rows = queryRowsInRange(SITE_A, "2026-01-05", "2026-01-10", db);
     expect(rows.some((r) => r.site === SITE_B)).toBe(false);
+  });
+});
+
+describe("pageRowsInRange", () => {
+  it("returns only in-range page rows for the given site, ordered by date", () => {
+    const db = getDb(fixturePath);
+    const rows = pageRowsInRange(SITE_A, "2026-01-05", "2026-01-10", db);
+
+    expect(rows.map((r) => r.date)).toEqual(["2026-01-05", "2026-01-07", "2026-01-10"]);
+    expect(rows.every((r) => r.site === SITE_A)).toBe(true);
+    // Out-of-range dates and the out-of-range sentinel values must not appear.
+    expect(rows.some((r) => r.clicks === 999)).toBe(false);
+  });
+
+  it("excludes rows from other sites", () => {
+    const db = getDb(fixturePath);
+    const rows = pageRowsInRange(SITE_A, "2026-01-05", "2026-01-10", db);
+    expect(rows.some((r) => r.site === SITE_B)).toBe(false);
+  });
+
+  it("returns [] for a site with no page rows at all", () => {
+    const db = getDb(fixturePath);
+    const rows = pageRowsInRange(SITE_B, "2026-01-05", "2026-01-10", db);
+    expect(rows).toEqual([]);
   });
 });
 

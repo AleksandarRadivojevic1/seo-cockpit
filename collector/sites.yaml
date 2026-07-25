@@ -12,4 +12,4 @@ sites:
   - property: "https://optikacajs.rs/"
     slug: optika-cajs
     display_name: "Optika Čajš"
-    brand_token: optika
+    brand_token: cajs

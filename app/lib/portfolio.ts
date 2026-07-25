@@ -2,7 +2,7 @@ import type Database from "better-sqlite3";
 
 import type { CwvRow, SiteConfig } from "./db";
 import { latestCwv, latestTotalsDate, totalsInRange } from "./db";
-import { recentVsPrior, windowBounds } from "./analysis/windows";
+import { addDaysUTC, parseISODateUTC, recentVsPrior, windowBounds } from "./analysis/windows";
 import { deriveSignals } from "./analysis/signals";
 
 export type DataState = "ok" | "collecting" | "empty";
@@ -33,27 +33,6 @@ export interface SiteSummary {
     daysBehind: number | null;
     level: FreshnessLevel;
   };
-}
-
-/** Parses a "YYYY-MM-DD" string into a UTC-midnight Date (see lib/analysis/windows.ts). */
-function parseISODateUTC(iso: string): Date {
-  const [year, month, day] = iso.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day));
-}
-
-/** Formats a Date as "YYYY-MM-DD" using its UTC components. */
-function formatISODateUTC(date: Date): string {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-/** Adds (or subtracts, for negative values) `days` to an ISO date string, in UTC. */
-function addDaysUTC(iso: string, days: number): string {
-  const date = parseISODateUTC(iso);
-  date.setUTCDate(date.getUTCDate() + days);
-  return formatISODateUTC(date);
 }
 
 /** Whole UTC days from `earlier` to `later` (positive when `later` is after `earlier`). */

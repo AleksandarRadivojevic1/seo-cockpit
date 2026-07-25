@@ -1,4 +1,5 @@
 import type { AggregatedQuery } from "./windows";
+import { isBrand } from "./brand";
 import { opportunityScore } from "./score";
 
 /** Drop single-impression one-offs: recent-window impressions below this are noise. */
@@ -71,11 +72,6 @@ function toEntry(
     positionDelta,
     score: opportunityScore(recentRow),
   };
-}
-
-/** True if `query` contains `brandToken` as a case-insensitive substring (both trimmed/lowercased). */
-function isBrand(query: string, brandToken: string): boolean {
-  return query.trim().toLowerCase().includes(brandToken.trim().toLowerCase());
 }
 
 /**
