@@ -5,7 +5,7 @@ import { latestCwv, latestTotalsDate, totalsInRange } from "./db";
 import { addDaysUTC, parseISODateUTC, recentVsPrior, windowBounds } from "./analysis/windows";
 import { deriveSignals } from "./analysis/signals";
 
-export type DataState = "ok" | "collecting" | "empty";
+export type DataState = "ok" | "collecting" | "zero" | "not-collected";
 export type CwvVerdict = "good" | "needs-work" | "poor" | "none";
 export type FreshnessLevel = "fresh" | "stale" | "broken" | "none";
 
@@ -129,8 +129,18 @@ export function buildSiteSummary(
   const recentImpressions = recentRows.reduce((sum, r) => sum + r.impressions, 0);
   const priorImpressions = priorRows.reduce((sum, r) => sum + r.impressions, 0);
 
+  // "No rows at all in the recent window" (never collected / collector gap)
+  // and "rows exist, every one measured zero impressions" are different
+  // facts and must resolve to different states -- collapsing them here is
+  // the exact conflation this project forbids (see DataState's doc).
   const dataState: DataState =
-    recentImpressions === 0 ? "empty" : priorImpressions === 0 ? "collecting" : "ok";
+    recentRows.length === 0
+      ? "not-collected"
+      : recentImpressions === 0
+        ? "zero"
+        : priorImpressions === 0
+          ? "collecting"
+          : "ok";
 
   const recentClicks = recentRows.reduce((sum, r) => sum + r.clicks, 0);
   const priorClicks = priorRows.reduce((sum, r) => sum + r.clicks, 0);

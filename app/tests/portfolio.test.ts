@@ -128,7 +128,13 @@ describe("freshness", () => {
 describe("buildSiteSummary", () => {
   const SITE_OK = "sc-domain:ok-site.test";
   const SITE_COLLECTING = "sc-domain:collecting-site.test";
-  const SITE_EMPTY = "sc-domain:empty-site.test";
+  // Never collected: zero totals_daily rows at all in the recent window.
+  const SITE_NOT_COLLECTED = "sc-domain:not-collected-site.test";
+  // Collected, but every collected row is a measured zero -- this is the
+  // "zero" state, distinct from SITE_NOT_COLLECTED's "not-collected". GSC
+  // genuinely returns explicit zero-impression rows (the audit found 4 such
+  // rows for alexrad), so this is the realistic shape, not an edge case.
+  const SITE_ZERO = "sc-domain:zero-site.test";
 
   // asOf = 2026-02-15 -> recentEnd = 2026-02-12, recentStart = 2026-01-16
   //                      priorEnd  = 2026-01-15, priorStart  = 2025-12-19
@@ -186,7 +192,14 @@ describe("buildSiteSummary", () => {
 
     insertSite.run(SITE_OK, "ok-site", "Ok Site", "oksite", "2026-02-15T00:00:00Z");
     insertSite.run(SITE_COLLECTING, "collecting-site", "Collecting Site", "collecting", "2026-02-15T00:00:00Z");
-    insertSite.run(SITE_EMPTY, "empty-site", "Empty Site", "empty", "2026-02-15T00:00:00Z");
+    insertSite.run(
+      SITE_NOT_COLLECTED,
+      "not-collected-site",
+      "Not Collected Site",
+      "notcollected",
+      "2026-02-15T00:00:00Z"
+    );
+    insertSite.run(SITE_ZERO, "zero-site", "Zero Site", "zero", "2026-02-15T00:00:00Z");
 
     // SITE_OK: three rows in the recent window (2026-01-16..2026-02-12),
     // deliberately weighted so the impression-weighted average position
@@ -210,8 +223,17 @@ describe("buildSiteSummary", () => {
     // in the prior window -> dataState 'collecting', deltaPct must be null.
     insertTotals.run(SITE_COLLECTING, "2026-01-16", 5, 40, 0.125, 15);
 
-    // SITE_EMPTY: no totals_daily rows in the recent window at all -> 'empty'.
-    // (No inserts for SITE_EMPTY.)
+    // SITE_NOT_COLLECTED: no totals_daily rows in the recent window at all ->
+    // 'not-collected'. (No inserts for SITE_NOT_COLLECTED.)
+
+    // SITE_ZERO: rows *do* exist for every date in the recent window, but
+    // every one measured 0 clicks and 0 impressions -> 'zero', which must
+    // resolve and render differently from SITE_NOT_COLLECTED's 'not-collected'
+    // even though both look "empty" if you only sum impressions.
+    insertTotals.run(SITE_ZERO, "2026-01-16", 0, 0, 0, 0);
+    insertTotals.run(SITE_ZERO, "2026-01-17", 0, 0, 0, 0);
+    insertTotals.run(SITE_ZERO, "2026-01-18", 0, 0, 0, 0);
+    insertTotals.run(SITE_ZERO, "2026-01-19", 0, 0, 0, 0);
 
     writeDb.close();
   });
@@ -239,9 +261,22 @@ describe("buildSiteSummary", () => {
     expect(summary.dataState).toBe("collecting");
   });
 
-  it("resolves dataState 'empty' when the recent window has 0 impressions", () => {
-    const summary = buildSiteSummary(configFor("empty-site"), AS_OF, getDb(fixturePath));
-    expect(summary.dataState).toBe("empty");
+  it("resolves dataState 'not-collected' when the recent window has no rows at all", () => {
+    const summary = buildSiteSummary(configFor("not-collected-site"), AS_OF, getDb(fixturePath));
+    expect(summary.dataState).toBe("not-collected");
+  });
+
+  it("resolves dataState 'zero' when the recent window has rows but every one measured 0 impressions", () => {
+    const summary = buildSiteSummary(configFor("zero-site"), AS_OF, getDb(fixturePath));
+    expect(summary.dataState).toBe("zero");
+  });
+
+  it("distinguishes 'zero' from 'not-collected' -- both sum to 0 impressions but must not collapse", () => {
+    const zero = buildSiteSummary(configFor("zero-site"), AS_OF, getDb(fixturePath));
+    const notCollected = buildSiteSummary(configFor("not-collected-site"), AS_OF, getDb(fixturePath));
+    expect(zero.dataState).toBe("zero");
+    expect(notCollected.dataState).toBe("not-collected");
+    expect(zero.dataState).not.toBe(notCollected.dataState);
   });
 
   it("produces a sparkline of exactly 28 entries, oldest to newest, distinguishing a real 0 from a gap's null", () => {
@@ -291,11 +326,26 @@ describe("buildSiteSummary", () => {
     expect(summary.clicks.deltaPct).toBeCloseTo(((53 - 20) / 20) * 100, 10);
   });
 
-  it("renders an all-null sparkline (never a false 0) and null avgPosition for an 'empty' site", () => {
-    const summary = buildSiteSummary(configFor("empty-site"), AS_OF, getDb(fixturePath));
+  it("renders an all-null sparkline (never a false 0) and null avgPosition for a 'not-collected' site", () => {
+    const summary = buildSiteSummary(configFor("not-collected-site"), AS_OF, getDb(fixturePath));
     expect(summary.avgPosition).toBeNull();
     expect(summary.sparkline).toHaveLength(28);
     expect(summary.sparkline.every((v) => v === null)).toBe(true);
+  });
+
+  it("renders a sparkline of real (measured) zeroes, not nulls, and null avgPosition for a 'zero' site", () => {
+    const summary = buildSiteSummary(configFor("zero-site"), AS_OF, getDb(fixturePath));
+    expect(summary.avgPosition).toBeNull();
+    expect(summary.sparkline).toHaveLength(28);
+    // Indexes 0-3 (2026-01-16..19) have real totals_daily rows with 0 clicks
+    // -- these must be the number 0, distinguishing "measured, and it was
+    // zero" from "not measured" (null) for the trailing uncollected days.
+    for (let i = 0; i < 4; i++) {
+      expect(summary.sparkline[i]).toBe(0);
+    }
+    for (let i = 4; i < 28; i++) {
+      expect(summary.sparkline[i]).toBeNull();
+    }
   });
 
   it("wires strikingCount from deriveSignals(recentVsPrior(...))", () => {
@@ -326,8 +376,15 @@ describe("buildSiteSummary", () => {
   });
 
   it("reports freshness 'none' for a site with no totals_daily rows at all", () => {
-    const summary = buildSiteSummary(configFor("empty-site"), AS_OF, getDb(fixturePath));
+    const summary = buildSiteSummary(configFor("not-collected-site"), AS_OF, getDb(fixturePath));
     expect(summary.freshness).toEqual({ latestDate: null, daysBehind: null, level: "none" });
+  });
+
+  it("reports a real freshness level (not 'none') for a 'zero' site -- rows exist even though they're all 0", () => {
+    const summary = buildSiteSummary(configFor("zero-site"), AS_OF, getDb(fixturePath));
+    // Latest totals_daily row for SITE_ZERO is 2026-01-19; asOf is 2026-02-15 -> 27 days behind.
+    expect(summary.freshness.latestDate).toBe("2026-01-19");
+    expect(summary.freshness.level).toBe("broken");
   });
 });
 
@@ -375,10 +432,27 @@ describe("SiteCard", () => {
     expect(html).not.toContain("▼");
   });
 
-  it("shows the EmptyState and renders no <polyline for an 'empty' site", () => {
+  it("shows 'No impressions in the last 28 days' and renders no <polyline for a 'zero' site", () => {
     const html = renderCard(
       baseSummary({
-        dataState: "empty",
+        dataState: "zero",
+        clicks: { recent: 0, prior: 0, deltaPct: null },
+        avgPosition: null,
+        // Rows exist (measured zeroes), unlike the 'not-collected' case below.
+        sparkline: Array(28).fill(0),
+        strikingCount: 0,
+        cwv: { verdict: "none", lcp: null, inp: null, cls: null },
+      })
+    );
+    expect(html).toContain("No impressions in the last 28 days");
+    expect(html).not.toContain("Not collected yet");
+    expect(html).not.toContain("<polyline");
+  });
+
+  it("shows 'Not collected yet' and renders no <polyline for a 'not-collected' site", () => {
+    const html = renderCard(
+      baseSummary({
+        dataState: "not-collected",
         clicks: { recent: 0, prior: 0, deltaPct: null },
         avgPosition: null,
         sparkline: Array(28).fill(null),
@@ -386,8 +460,33 @@ describe("SiteCard", () => {
         cwv: { verdict: "none", lcp: null, inp: null, cls: null },
       })
     );
-    expect(html).toContain("No search data yet");
+    expect(html).toContain("Not collected yet");
+    expect(html).not.toContain("No impressions in the last 28 days");
     expect(html).not.toContain("<polyline");
+  });
+
+  it("renders different copy for 'zero' vs 'not-collected' -- they must never look the same", () => {
+    const zeroHtml = renderCard(
+      baseSummary({
+        dataState: "zero",
+        clicks: { recent: 0, prior: 0, deltaPct: null },
+        avgPosition: null,
+        sparkline: Array(28).fill(0),
+        strikingCount: 0,
+        cwv: { verdict: "none", lcp: null, inp: null, cls: null },
+      })
+    );
+    const notCollectedHtml = renderCard(
+      baseSummary({
+        dataState: "not-collected",
+        clicks: { recent: 0, prior: 0, deltaPct: null },
+        avgPosition: null,
+        sparkline: Array(28).fill(null),
+        strikingCount: 0,
+        cwv: { verdict: "none", lcp: null, inp: null, cls: null },
+      })
+    );
+    expect(zeroHtml).not.toEqual(notCollectedHtml);
   });
 
   function countOccurrences(haystack: string, needle: string): number {

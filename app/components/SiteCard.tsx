@@ -199,8 +199,10 @@ export default function SiteCard({ summary }: SiteCardProps) {
         <FreshnessPill freshness={summary.freshness} />
       </div>
 
-      {summary.dataState === "empty" ? (
-        <EmptyState title="No search data yet" />
+      {summary.dataState === "zero" ? (
+        <EmptyState title="No impressions in the last 28 days" />
+      ) : summary.dataState === "not-collected" ? (
+        <EmptyState title="Not collected yet" />
       ) : (
         <>
           <Sparkline values={summary.sparkline} deltaPct={summary.clicks.deltaPct} />
