@@ -22,8 +22,8 @@ SITE_B = "https://skedio.rs/"
 def _config(tmp_path, sites=None):
     if sites is None:
         sites = [
-            Site(property=SITE_A, display_name="Alexrad", brand_token="alexrad"),
-            Site(property=SITE_B, display_name="Skedio", brand_token="skedio"),
+            Site(property=SITE_A, slug="alexrad", display_name="Alexrad", brand_token="alexrad"),
+            Site(property=SITE_B, slug="skedio", display_name="Skedio", brand_token="skedio"),
         ]
     return Config(
         sites=sites,
@@ -211,6 +211,48 @@ def test_mid_write_failure_isolates_and_leaves_partial_rows(tmp_path, conn):
 
 
 # ---------------------------------------------------------------------------
+# Site config plumbing: upsert_sites is called once, up front, for every
+# configured site (regardless of that site's later collection outcome).
+# ---------------------------------------------------------------------------
+
+
+def test_collect_once_upserts_site_config_for_every_site(tmp_path, conn):
+    config = _config(tmp_path)
+
+    def fetch_analytics(service, property, start, end):
+        if property == SITE_A:
+            raise RuntimeError("boom: GSC API error")
+        return _sa(property, "2026-07-15")
+
+    def fetch_cwv_fn(url):
+        return None
+
+    collect_once(
+        config,
+        mode="incremental",
+        conn=conn,
+        service=object(),
+        fetch_analytics=fetch_analytics,
+        fetch_cwv_fn=fetch_cwv_fn,
+        today=datetime.date(2026, 7, 24),
+    )
+
+    # captured_at for today=2026-07-24 is midnight UTC on that date.
+    expected_updated_at = "2026-07-24T00:00:00+00:00"
+
+    rows = {
+        row[0]: row
+        for row in conn.execute(
+            "SELECT property, slug, display_name, brand_token, updated_at FROM sites"
+        ).fetchall()
+    }
+    # Both sites' config rows are written up front, even though SITE_A's
+    # collection itself fails later in the run.
+    assert rows[SITE_A] == (SITE_A, "alexrad", "Alexrad", "alexrad", expected_updated_at)
+    assert rows[SITE_B] == (SITE_B, "skedio", "Skedio", "skedio", expected_updated_at)
+
+
+# ---------------------------------------------------------------------------
 # Date window
 # ---------------------------------------------------------------------------
 
@@ -260,7 +302,7 @@ def test_homepage_url_url_prefix_property_passthrough():
 
 
 def test_cwv_none_means_no_row_and_run_still_succeeds(tmp_path, conn):
-    config = _config(tmp_path, sites=[Site(property=SITE_A, display_name="A", brand_token="a")])
+    config = _config(tmp_path, sites=[Site(property=SITE_A, slug="site-a", display_name="A", brand_token="a")])
 
     def fetch_analytics(service, property, start, end):
         return _sa(property, "2026-07-15")
@@ -291,7 +333,7 @@ def test_cwv_none_means_no_row_and_run_still_succeeds(tmp_path, conn):
 
 
 def test_cwv_present_writes_one_row_with_site(tmp_path, conn):
-    config = _config(tmp_path, sites=[Site(property=SITE_A, display_name="A", brand_token="a")])
+    config = _config(tmp_path, sites=[Site(property=SITE_A, slug="site-a", display_name="A", brand_token="a")])
 
     def fetch_analytics(service, property, start, end):
         return _sa(property, "2026-07-15")

@@ -9,6 +9,7 @@ from seocockpit.db import (
     start_run,
     upsert_page_daily,
     upsert_query_daily,
+    upsert_sites,
     upsert_totals,
 )
 
@@ -34,6 +35,7 @@ def test_init_db_creates_expected_tables(conn):
         "page_daily",
         "cwv_snapshots",
         "collection_runs",
+        "sites",
     } <= tables
 
 
@@ -262,6 +264,78 @@ def test_finish_run_records_error(conn):
         (run_id,),
     ).fetchone()
     assert row == ("failed", "boom", 0)
+
+
+def test_upsert_sites_is_idempotent(conn):
+    row = {
+        "property": SITE,
+        "slug": "example",
+        "display_name": "Example",
+        "brand_token": "example",
+        "updated_at": "2026-07-20T00:00:00+00:00",
+    }
+
+    upsert_sites(conn, [row])
+    upsert_sites(conn, [row])
+
+    rows = conn.execute("SELECT * FROM sites WHERE property=?", (SITE,)).fetchall()
+    assert len(rows) == 1
+
+
+def test_upsert_sites_second_run_updates_in_place(conn):
+    row_v1 = {
+        "property": SITE,
+        "slug": "example",
+        "display_name": "Example",
+        "brand_token": "example",
+        "updated_at": "2026-07-20T00:00:00+00:00",
+    }
+    row_v2 = {
+        "property": SITE,
+        "slug": "example-renamed",
+        "display_name": "Example Renamed",
+        "brand_token": "example2",
+        "updated_at": "2026-07-21T00:00:00+00:00",
+    }
+
+    upsert_sites(conn, [row_v1])
+    upsert_sites(conn, [row_v2])
+
+    rows = conn.execute(
+        "SELECT property, slug, display_name, brand_token, updated_at FROM sites"
+    ).fetchall()
+
+    assert len(rows) == 1
+    assert rows[0] == (
+        SITE,
+        "example-renamed",
+        "Example Renamed",
+        "example2",
+        "2026-07-21T00:00:00+00:00",
+    )
+
+
+def test_upsert_sites_multiple_rows_in_one_call(conn):
+    rows = [
+        {
+            "property": SITE,
+            "slug": "example",
+            "display_name": "Example",
+            "brand_token": "example",
+            "updated_at": "2026-07-20T00:00:00+00:00",
+        },
+        {
+            "property": "https://example.org/",
+            "slug": "example-org",
+            "display_name": "Example Org",
+            "brand_token": "exampleorg",
+            "updated_at": "2026-07-20T00:00:00+00:00",
+        },
+    ]
+    upsert_sites(conn, rows)
+
+    count = conn.execute("SELECT COUNT(*) FROM sites").fetchone()[0]
+    assert count == 2
 
 
 def test_indexes_exist(conn):

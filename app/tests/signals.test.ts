@@ -41,14 +41,17 @@ describe("deriveSignals", () => {
     const prior = new Map<string, AggregatedQuery>();
 
     // --- strikingDistance candidates ---
-    // Inside [8,20], real impressions. Hand-computed opportunityScore:
-    // "striking a" pos=10 -> gapToPage1=0 -> score=0 (boundary: <=10 is page-1, not counted below in ordering assertions except presence)
-    recent.set("striking a", agg({ impressions: 300, clicks: 3, position: 10 }));
+    // Inside [11,20], real impressions. Hand-computed opportunityScore:
+    // "striking a" pos=11 (the new lower boundary) -> gap=1, ctr=3/300=0.01 -> score=300*1*0.99=297
+    recent.set("striking a", agg({ impressions: 300, clicks: 3, position: 11 }));
     // "striking b" pos=12 -> gap=2, ctr=10/500=0.02 -> score=500*2*0.98=980
     recent.set("striking b", agg({ impressions: 500, clicks: 10, position: 12 }));
     // "striking c" pos=20 -> gap=10, ctr=0/100=0 -> score=100*10*1=1000
     recent.set("striking c", agg({ impressions: 100, clicks: 0, position: 20 }));
-    // Excluded: position < 8
+    // Excluded: position < 11 but still page-2-ish (~9) -- pins the new boundary:
+    // pos=9 is one spot below the raised STRIKING_MIN_POS(11) and must NOT appear.
+    recent.set("just below boundary", agg({ impressions: 900, clicks: 5, position: 9 }));
+    // Excluded: position well above page 1
     recent.set("too high", agg({ impressions: 900, clicks: 5, position: 5 }));
     // Excluded: position > 20
     recent.set("too low", agg({ impressions: 900, clicks: 5, position: 21 }));
@@ -91,24 +94,30 @@ describe("deriveSignals", () => {
     return { recent, prior };
   }
 
-  it("includes queries in the [8,20] striking-distance band, ordered by opportunityScore desc, and excludes queries outside it", () => {
+  it("includes queries in the [11,20] striking-distance band, ordered by opportunityScore desc, and excludes queries outside it", () => {
     const { recent, prior } = buildFixture();
     const { strikingDistance } = deriveSignals(recent, prior, BRAND);
+
+    expect(STRIKING_MIN_POS).toBe(11);
 
     const queries = strikingDistance.map((e) => e.query);
     expect(queries).toContain("striking a");
     expect(queries).toContain("striking b");
     expect(queries).toContain("striking c");
+    // Boundary: pos=9 (just below the raised STRIKING_MIN_POS=11) is excluded.
+    expect(queries).not.toContain("just below boundary");
     expect(queries).not.toContain("too high");
     expect(queries).not.toContain("too low");
     expect(queries).not.toContain("noise query"); // dropped by noise floor
 
-    // Hand-computed scores: c=1000, b=980, a=0
+    // Hand-computed scores: c=1000, b=980, a=297
     const scoresInOrder = strikingDistance
       .filter((e) => ["striking a", "striking b", "striking c"].includes(e.query))
       .map((e) => e.query);
     expect(scoresInOrder).toEqual(["striking c", "striking b", "striking a"]);
 
+    const a = strikingDistance.find((e) => e.query === "striking a")!;
+    expect(a.score).toBeCloseTo(297, 10);
     const b = strikingDistance.find((e) => e.query === "striking b")!;
     expect(b.score).toBeCloseTo(980, 10);
     const c = strikingDistance.find((e) => e.query === "striking c")!;

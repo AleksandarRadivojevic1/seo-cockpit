@@ -7,10 +7,14 @@ Schema (per DESIGN.md):
 - ``page_daily``        PK (site, date, page)
 - ``cwv_snapshots``     append-only, no PK (site, url, captured_at) grain
 - ``collection_runs``   id INTEGER PRIMARY KEY AUTOINCREMENT
+- ``sites``             PK (property); display metadata for the dashboard
 
-``site`` is always the GSC property string from ``Site.property`` (e.g.
-``sc-domain:alexrad.dev``) -- the stable unique key the rest of the
-collector already has. No separate slug is invented here.
+``site`` (in every table above except ``sites``) is always the GSC property
+string from ``Site.property`` (e.g. ``sc-domain:alexrad.dev``) -- the stable
+unique key the rest of the collector already has. ``sites`` carries the
+``slug``/``display_name``/``brand_token`` from ``sites.yaml`` so the
+dashboard container (which shares only the ``data/`` directory, not
+``sites.yaml`` itself) can read them from the DB.
 
 Connection management: every write/read function in this module takes an
 already-open ``sqlite3.Connection`` and commits its own change. Callers own
@@ -70,6 +74,14 @@ CREATE TABLE IF NOT EXISTS cwv_snapshots (
     cls_p75 REAL,
     source TEXT NOT NULL,
     form_factor TEXT
+);
+
+CREATE TABLE IF NOT EXISTS sites (
+    property     TEXT PRIMARY KEY,
+    slug         TEXT NOT NULL UNIQUE,
+    display_name TEXT NOT NULL,
+    brand_token  TEXT NOT NULL,
+    updated_at   TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS collection_runs (
@@ -176,6 +188,30 @@ def upsert_page_daily(conn: sqlite3.Connection, rows: Iterable[Mapping]) -> None
             impressions = excluded.impressions,
             ctr = excluded.ctr,
             position = excluded.position
+        """,
+        list(rows),
+    )
+    conn.commit()
+
+
+def upsert_sites(conn: sqlite3.Connection, rows: Iterable[Mapping]) -> None:
+    """Upsert rows into ``sites``, keyed on ``property``.
+
+    Each row is a mapping with keys: property, slug, display_name,
+    brand_token, updated_at. Re-upserting the same ``property`` updates the
+    existing row in place rather than creating a duplicate, so editing
+    ``sites.yaml`` (display name, brand token, or slug) propagates on the
+    next collection run.
+    """
+    conn.executemany(
+        """
+        INSERT INTO sites (property, slug, display_name, brand_token, updated_at)
+        VALUES (:property, :slug, :display_name, :brand_token, :updated_at)
+        ON CONFLICT (property) DO UPDATE SET
+            slug = excluded.slug,
+            display_name = excluded.display_name,
+            brand_token = excluded.brand_token,
+            updated_at = excluded.updated_at
         """,
         list(rows),
     )

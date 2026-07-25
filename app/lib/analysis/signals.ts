@@ -7,8 +7,13 @@ export const NOISE_FLOOR_IMPRESSIONS = 2;
 export const RISING_MIN_DELTA = 10;
 /** Minimum position change (spots) for a query to count as "climbing" or "declining". */
 export const POSITION_MOVE_MIN = 3;
-/** Inclusive lower bound of the "striking distance" position band. */
-export const STRIKING_MIN_POS = 8;
+/**
+ * Inclusive lower bound of the "striking distance" position band (strict
+ * page-2 band, 11-20). Positions 8-10 are already on page 1, where
+ * gapToPage1 = max(0, position - 10) scores 0 -- starting at 11 keeps every
+ * listed keyword with a real gap and a non-zero opportunity score.
+ */
+export const STRIKING_MIN_POS = 11;
 /** Inclusive upper bound of the "striking distance" position band. */
 export const STRIKING_MAX_POS = 20;
 /** Cap on the number of entries returned per signal list. */

@@ -2,10 +2,10 @@ db_path: data/test.db
 service_account_path: secrets/test-service-account.json
 sites:
   - property: "sc-domain:example.com"
-    slug: example
+    slug: duplicate-slug
     display_name: Example
     brand_token: example
   - property: "https://example.org/"
-    slug: example-org
+    slug: duplicate-slug
     display_name: Example Org
     brand_token: exampleorg

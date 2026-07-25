@@ -20,6 +20,13 @@ export interface QueryRow {
   position: number;
 }
 
+export interface SiteConfig {
+  property: string;
+  slug: string;
+  displayName: string;
+  brandToken: string;
+}
+
 export interface CwvRow {
   site: string;
   url: string;
@@ -117,4 +124,47 @@ export function latestCwv(site: string, db: Database.Database = getDb()): CwvRow
     )
     .get(site);
   return row ?? null;
+}
+
+/** All configured sites' display metadata, ordered by display_name. */
+export function listSiteConfigs(db: Database.Database = getDb()): SiteConfig[] {
+  return db
+    .prepare<[], SiteConfig>(
+      `SELECT property, slug, display_name AS displayName, brand_token AS brandToken
+       FROM sites
+       ORDER BY display_name`
+    )
+    .all();
+}
+
+/** A single site's display metadata by slug, or null if no site has that slug. */
+export function siteConfigBySlug(
+  slug: string,
+  db: Database.Database = getDb()
+): SiteConfig | null {
+  const row = db
+    .prepare<[string], SiteConfig>(
+      `SELECT property, slug, display_name AS displayName, brand_token AS brandToken
+       FROM sites
+       WHERE slug = ?`
+    )
+    .get(slug);
+  return row ?? null;
+}
+
+/**
+ * MAX(date) from totals_daily for one site, or null if the site has no rows.
+ *
+ * Deliberately its own query rather than derived from a recent window's
+ * rows: if the collector died 40 days ago the recent window is empty, and
+ * the caller must still be able to distinguish "collector broken" from "no
+ * data at all".
+ */
+export function latestTotalsDate(site: string, db: Database.Database = getDb()): string | null {
+  const row = db
+    .prepare<[string], { maxDate: string | null }>(
+      `SELECT MAX(date) AS maxDate FROM totals_daily WHERE site = ?`
+    )
+    .get(site);
+  return row?.maxDate ?? null;
 }

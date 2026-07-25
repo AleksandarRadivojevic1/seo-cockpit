@@ -7,13 +7,17 @@ import path from "node:path";
 import {
   getDb,
   latestCwv,
+  latestTotalsDate,
+  listSiteConfigs,
   listSites,
   queryRowsInRange,
+  siteConfigBySlug,
   totalsInRange,
 } from "../lib/db";
 
 const SITE_A = "sc-domain:alexrad.dev";
 const SITE_B = "https://skedio.rs/";
+const SITE_C = "https://optikacajs.rs/";
 
 let fixturePath: string;
 
@@ -45,6 +49,13 @@ beforeAll(() => {
       id INTEGER PRIMARY KEY, site TEXT, started_at TEXT, finished_at TEXT,
       rows_written INT, status TEXT, error TEXT
     );
+    CREATE TABLE sites (
+      property TEXT PRIMARY KEY,
+      slug TEXT NOT NULL UNIQUE,
+      display_name TEXT NOT NULL,
+      brand_token TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `);
 
   const insertTotals = writeDb.prepare(
@@ -55,6 +66,9 @@ beforeAll(() => {
   );
   const insertCwv = writeDb.prepare(
     "INSERT INTO cwv_snapshots (site, url, captured_at, lcp_p75, inp_p75, cls_p75, source, form_factor) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  );
+  const insertSite = writeDb.prepare(
+    "INSERT INTO sites (property, slug, display_name, brand_token, updated_at) VALUES (?, ?, ?, ?, ?)"
   );
 
   // Chosen test range: 2026-01-05 .. 2026-01-10 (inclusive)
@@ -82,6 +96,12 @@ beforeAll(() => {
   insertCwv.run(SITE_A, "https://alexrad.dev/", "2026-01-05T00:00:00Z", 2.5, 200, 0.1, "crux", "PHONE");
   insertCwv.run(SITE_A, "https://alexrad.dev/", "2026-01-09T00:00:00Z", 2.1, 180, 0.05, "crux", "PHONE");
   // SITE_B has no cwv snapshots at all.
+
+  // Site config rows. SITE_C is configured but has no totals_daily rows at
+  // all, to prove latestTotalsDate distinguishes "no data" from "has data".
+  insertSite.run(SITE_A, "alexrad", "Alexrad", "alexrad", "2026-01-10T00:00:00Z");
+  insertSite.run(SITE_B, "skedio", "Skedio", "skedio", "2026-01-10T00:00:00Z");
+  insertSite.run(SITE_C, "optika-cajs", "Optika Čajš", "optika", "2026-01-10T00:00:00Z");
 
   writeDb.close();
 });
@@ -146,6 +166,56 @@ describe("latestCwv", () => {
   it("returns null for a site with no snapshots", () => {
     const db = getDb(fixturePath);
     expect(latestCwv(SITE_B, db)).toBeNull();
+  });
+});
+
+describe("listSiteConfigs", () => {
+  it("returns all configured sites, ordered by display name, with camelCase fields", () => {
+    const db = getDb(fixturePath);
+    const configs = listSiteConfigs(db);
+
+    expect(configs.map((c) => c.displayName)).toEqual(["Alexrad", "Optika Čajš", "Skedio"]);
+
+    const alexrad = configs.find((c) => c.property === SITE_A)!;
+    expect(alexrad).toEqual({
+      property: SITE_A,
+      slug: "alexrad",
+      displayName: "Alexrad",
+      brandToken: "alexrad",
+    });
+  });
+});
+
+describe("siteConfigBySlug", () => {
+  it("returns the matching site config for a known slug", () => {
+    const db = getDb(fixturePath);
+    const config = siteConfigBySlug("skedio", db);
+
+    expect(config).toEqual({
+      property: SITE_B,
+      slug: "skedio",
+      displayName: "Skedio",
+      brandToken: "skedio",
+    });
+  });
+
+  it("returns null for a slug that doesn't exist", () => {
+    const db = getDb(fixturePath);
+    expect(siteConfigBySlug("no-such-slug", db)).toBeNull();
+  });
+});
+
+describe("latestTotalsDate", () => {
+  it("returns the MAX(date) across all totals_daily rows for a site with data", () => {
+    const db = getDb(fixturePath);
+    // SITE_A has an out-of-range row on 2026-01-11 -- latestTotalsDate looks
+    // at the whole table, not just the 28-day window, so it must see it.
+    expect(latestTotalsDate(SITE_A, db)).toBe("2026-01-11");
+  });
+
+  it("returns null for a configured site with no totals_daily rows at all", () => {
+    const db = getDb(fixturePath);
+    expect(latestTotalsDate(SITE_C, db)).toBeNull();
   });
 });
 

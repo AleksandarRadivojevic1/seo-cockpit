@@ -137,6 +137,20 @@ def collect_once(
         today.year, today.month, today.day, tzinfo=datetime.timezone.utc
     ).isoformat()
 
+    db.upsert_sites(
+        conn,
+        (
+            {
+                "property": site.property,
+                "slug": site.slug,
+                "display_name": site.display_name,
+                "brand_token": site.brand_token,
+                "updated_at": captured_at,
+            }
+            for site in config.sites
+        ),
+    )
+
     results: list[dict] = []
 
     for site in config.sites:

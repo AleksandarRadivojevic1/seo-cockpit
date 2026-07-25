@@ -14,12 +14,13 @@ import yaml
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "sites.yaml"
 
 _REQUIRED_TOP_LEVEL_KEYS = ("db_path", "service_account_path", "sites")
-_REQUIRED_SITE_KEYS = ("property", "display_name", "brand_token")
+_REQUIRED_SITE_KEYS = ("property", "slug", "display_name", "brand_token")
 
 
 @dataclass(frozen=True)
 class Site:
     property: str
+    slug: str
     display_name: str
     brand_token: str
 
@@ -39,7 +40,8 @@ def load_config(path: str | Path | None = None) -> Config:
             collector/sites.yaml.
 
     Raises:
-        ValueError: If a required top-level or per-site key is missing.
+        ValueError: If a required top-level or per-site key is missing, or
+            if two sites share the same ``slug``.
     """
     config_path = Path(path) if path is not None else DEFAULT_CONFIG_PATH
 
@@ -53,6 +55,7 @@ def load_config(path: str | Path | None = None) -> Config:
             )
 
     sites = []
+    seen_slugs: set[str] = set()
     for index, raw_site in enumerate(raw["sites"]):
         for key in _REQUIRED_SITE_KEYS:
             if key not in raw_site:
@@ -60,9 +63,17 @@ def load_config(path: str | Path | None = None) -> Config:
                     f"Missing required key '{key}' in sites[{index}] "
                     f"of config file: {config_path}"
                 )
+        slug = raw_site["slug"]
+        if slug in seen_slugs:
+            raise ValueError(
+                f"Duplicate slug '{slug}' in sites[{index}] "
+                f"of config file: {config_path}"
+            )
+        seen_slugs.add(slug)
         sites.append(
             Site(
                 property=raw_site["property"],
+                slug=slug,
                 display_name=raw_site["display_name"],
                 brand_token=raw_site["brand_token"],
             )

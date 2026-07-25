@@ -2,11 +2,14 @@ db_path: data/seo.db
 service_account_path: secrets/service-account.json
 sites:
   - property: "sc-domain:alexrad.dev"
+    slug: alexrad
     display_name: Alexrad
     brand_token: alexrad
   - property: "https://skedio.rs/"
+    slug: skedio
     display_name: Skedio
     brand_token: skedio
   - property: "https://optikacajs.rs/"
+    slug: optika-cajs
     display_name: "Optika Čajš"
     brand_token: optika
