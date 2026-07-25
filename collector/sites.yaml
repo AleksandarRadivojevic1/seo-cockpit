@@ -11,5 +11,5 @@ sites:
     brand_token: skedio
   - property: "https://optikacajs.rs/"
     slug: optika-cajs
-    display_name: "Optika Čajš"
+    display_name: "Optika Cajs"
     brand_token: cajs
