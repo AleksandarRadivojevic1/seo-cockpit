@@ -98,6 +98,7 @@ export interface LineProps {
 function LineSeriesStroke({
   animatedPathD,
   curve,
+  dataKey,
   getY,
   pathRef,
   renderData,
@@ -109,6 +110,7 @@ function LineSeriesStroke({
 }: {
   animatedPathD: string;
   curve: CurveFactory;
+  dataKey: string;
   getY: (datum: Record<string, unknown>) => number;
   pathRef: RefObject<SVGPathElement | null>;
   renderData: Record<string, unknown>[];
@@ -135,6 +137,13 @@ function LineSeriesStroke({
     <LinePath
       curve={curve}
       data={renderData}
+      // A datum with no numeric value for this series (null / undefined --
+      // "no row for that date", not "a row with value 0") must not be
+      // plotted: without `defined`, d3/visx fall through to `y=0` for those
+      // points and draw a false line to the axis instead of breaking the
+      // path. See the `defined`-less bug this patches, tracked in
+      // task-11b-min-brief.md.
+      defined={(d) => typeof d[dataKey] === "number"}
       innerRef={pathRef}
       stroke={visibleStroke}
       strokeLinecap="round"
@@ -293,6 +302,9 @@ export function Line({
   const reactId = useId();
   const gradientId = `line-gradient-${dataKey}-${reactId}`;
 
+  // Returns 0 for a non-numeric (missing) value; harmless because those
+  // points are excluded from the drawn path by the `defined` accessor
+  // passed to `<LinePath>` below, not because 0 is a meaningful fallback.
   const getY = useCallback(
     (d: Record<string, unknown>) => {
       const value = d[dataKey];
@@ -341,6 +353,7 @@ export function Line({
         <LineSeriesStroke
           animatedPathD={animatedPathD}
           curve={curve}
+          dataKey={dataKey}
           getY={getY}
           pathRef={pathRef}
           renderData={renderData}

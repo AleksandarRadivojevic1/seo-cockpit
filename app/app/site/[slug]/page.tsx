@@ -1,0 +1,118 @@
+import { notFound } from "next/navigation";
+import { connection } from "next/server";
+
+import EmptyState from "../../../components/EmptyState";
+import TrendChart from "../../../components/TrendChart";
+import type { TrendPoint } from "../../../components/TrendChart";
+import { Badge } from "../../../components/ui/badge";
+import { addDaysUTC, formatISODateUTC, windowBounds } from "../../../lib/analysis/windows";
+import { siteConfigBySlug, totalsInRange } from "../../../lib/db";
+import type { TotalsRow } from "../../../lib/db";
+import { buildSiteSummary } from "../../../lib/portfolio";
+import type { SiteSummary } from "../../../lib/portfolio";
+import { cn } from "../../../lib/utils";
+
+type FreshnessLevel = SiteSummary["freshness"]["level"];
+
+// Same small presentational maps as SiteCard.tsx's FreshnessPill. Two call
+// sites isn't enough to justify pulling this into a shared module yet.
+const FRESHNESS_STYLES: Record<FreshnessLevel, string> = {
+  fresh: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400",
+  stale: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400",
+  broken: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400",
+  none: "bg-muted text-muted-foreground",
+};
+
+const FRESHNESS_LABEL: Record<FreshnessLevel, string> = {
+  fresh: "Fresh",
+  stale: "Stale",
+  broken: "Broken",
+  none: "No data",
+};
+
+/**
+ * One entry per calendar day from `start` to `end` inclusive. `totalsInRange`
+ * only returns dates that have a row, so this walks the full window and
+ * fills the gaps -- a date with a row contributes its real value (0
+ * included), a date with no row contributes `null`. Same approach as
+ * `buildSparkline` in lib/portfolio.ts; not reused directly because that one
+ * is click-only and file-private, but the null-vs-zero contract is
+ * identical and must stay identical.
+ */
+export function buildTrendSeries(rows: TotalsRow[], start: string, end: string): TrendPoint[] {
+  const byDate = new Map(rows.map((row) => [row.date, row]));
+  const series: TrendPoint[] = [];
+  for (let date = start; date <= end; date = addDaysUTC(date, 1)) {
+    const row = byDate.get(date);
+    series.push({
+      date,
+      clicks: row ? row.clicks : null,
+      impressions: row ? row.impressions : null,
+    });
+  }
+  return series;
+}
+
+/**
+ * Per-site trend view -- name, freshness badge, one clicks/impressions
+ * chart over the trailing 28-day window. Deliberately thin: this is the
+ * 11b/11c slice that gets a real chart on real data landed now; tables,
+ * the brand toggle, and the CWV panel are separate tasks.
+ *
+ * Server component (reads the DB directly via lib/db.ts) rendering a
+ * client-only <TrendChart>; `connection()` opts this route out of
+ * prerendering for the same reason app/page.tsx does -- the collector
+ * writes seo.db from a separate container, so nothing here can safely
+ * cache a build-time snapshot.
+ */
+export default async function SitePage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  await connection();
+
+  const { slug } = await params;
+  const config = siteConfigBySlug(slug);
+  if (!config) {
+    notFound();
+  }
+
+  const asOf = formatISODateUTC(new Date());
+  const summary = buildSiteSummary(config, asOf);
+  const { recentStart, recentEnd } = windowBounds(asOf);
+  const rows = totalsInRange(config.property, recentStart, recentEnd);
+  const series = buildTrendSeries(rows, recentStart, recentEnd);
+
+  // "zero" (rows exist, all measured zero) and "not-collected" (no rows at
+  // all) both mean "don't draw a chart" here, but they render different
+  // copy -- collapsing them would be the exact conflation this project
+  // forbids (see lib/portfolio.ts's DataState doc).
+  const showChart = summary.dataState === "ok" || summary.dataState === "collecting";
+
+  return (
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
+      <header className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="truncate text-xl font-semibold text-zinc-900 dark:text-zinc-50">
+            {config.displayName}
+          </h1>
+          <p className="truncate font-mono text-xs text-muted-foreground">{config.property}</p>
+        </div>
+        <Badge className={cn("shrink-0", FRESHNESS_STYLES[summary.freshness.level])}>
+          {FRESHNESS_LABEL[summary.freshness.level]}
+        </Badge>
+      </header>
+
+      <div className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
+        {showChart ? (
+          <TrendChart data={series} />
+        ) : summary.dataState === "zero" ? (
+          <EmptyState title="No impressions in the last 28 days" />
+        ) : (
+          <EmptyState title="Not collected yet" />
+        )}
+      </div>
+    </div>
+  );
+}
