@@ -211,6 +211,47 @@ export function countryRowsInRange(
 }
 
 /** All configured sites' display metadata, ordered by display_name. */
+/** One discovered demand keyword. Every measure is nullable by design. */
+export interface DemandRow {
+  keyword: string;
+  source: string;
+  seed: string | null;
+  suggestRank: number | null;
+  risingPct: number | null;
+  risingLabel: string | null;
+  topValue: number | null;
+  volume: number | null;
+}
+
+/**
+ * Keywords discovered for a site by the collector's demand sources.
+ *
+ * Returns an empty array when the table does not exist yet — the dashboard
+ * container may be running against a database written before Task 2.1, and a
+ * missing table is "not collected", not an error worth crashing a page over.
+ */
+export function demandKeywords(site: string, db: Database.Database = getDb()): DemandRow[] {
+  const exists = db
+    .prepare<[], { n: number }>(
+      "SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name='demand_keywords'"
+    )
+    .get();
+  if (!exists || exists.n === 0) return [];
+
+  return db
+    .prepare<[string], DemandRow>(
+      `SELECT keyword, source, seed,
+              suggest_rank AS suggestRank,
+              rising_pct   AS risingPct,
+              rising_label AS risingLabel,
+              top_value    AS topValue,
+              volume
+       FROM demand_keywords
+       WHERE site = ?`
+    )
+    .all(site);
+}
+
 export function listSiteConfigs(db: Database.Database = getDb()): SiteConfig[] {
   return db
     .prepare<[], SiteConfig>(

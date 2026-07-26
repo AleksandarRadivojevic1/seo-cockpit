@@ -5,6 +5,7 @@ import { connection } from "next/server";
 import BrandRing from "../../../components/BrandRing";
 import CountryMap from "../../../components/CountryMap";
 import CwvPanel from "../../../components/CwvPanel";
+import DemandGaps from "../../../components/DemandGaps";
 import EmptyState from "../../../components/EmptyState";
 // LighthouseRadar is kept alongside this: the two are interchangeable in the
 // panel below, so switching back is a one-line change rather than an undo.
@@ -17,12 +18,15 @@ import type { TrendPoint } from "../../../components/TrendChart";
 import { Badge } from "../../../components/ui/badge";
 import { buildBrandBreakdown, topPages } from "../../../lib/analysis/breakdown";
 import { buildCountryBreakdown } from "../../../lib/analysis/geography";
+import { buildDemandBreakdown } from "../../../lib/analysis/demand";
 import { deriveSignals } from "../../../lib/analysis/signals";
 import { addDaysUTC, formatISODateUTC, recentVsPrior, windowBounds } from "../../../lib/analysis/windows";
 import {
   countryRowsInRange,
+  demandKeywords,
   latestCwv,
   pageRowsInRange,
+  queryRowsInRange,
   siteConfigBySlug,
   totalsInRange,
 } from "../../../lib/db";
@@ -116,6 +120,13 @@ export default async function SitePage({
     totalImpressions
   );
   const cwv = latestCwv(config.property);
+  // Every query the site has EVER appeared for, not just this window: a
+  // keyword it ranked for six months ago is still not an undiscovered gap.
+  const everRanked = queryRowsInRange(config.property, "0000-01-01", "9999-12-31").map(
+    (r) => r.query
+  );
+  const demand = buildDemandBreakdown(demandKeywords(config.property), everRanked);
+
   const countries = buildCountryBreakdown(
     countryRowsInRange(config.property, recentStart, recentEnd)
   );
@@ -259,6 +270,16 @@ export default async function SitePage({
           Lighthouse categories
         </h2>
         <LighthouseRings row={cwv} />
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
+        <h2 className="pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          Demand you&apos;re missing
+        </h2>
+        <p className="pb-3 text-xs text-muted-foreground/70">
+          Searches with real demand that this site does not appear for at all.
+        </p>
+        <DemandGaps breakdown={demand} />
       </section>
 
       <section className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
