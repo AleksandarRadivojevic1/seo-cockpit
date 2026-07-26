@@ -110,6 +110,44 @@ CREATE TABLE IF NOT EXISTS collection_runs (
     error TEXT
 );
 
+-- Market demand: keywords people search that this site may or may not rank
+-- for. Distinct from query_daily, which can ONLY contain queries the site
+-- already appeared for -- Search Console structurally cannot report demand
+-- you are absent from, which is the whole reason this table exists.
+--
+-- Keyed on (site, keyword, source) so the same keyword found by two sources
+-- keeps both provenances rather than one overwriting the other.
+--
+-- EVERY MEASURE IS NULLABLE AND NULL MEANS "NOT MEASURED":
+--   volume       -- no free source provides it; NULL until one is wired in.
+--   rising_pct   -- percent growth from Google Trends.
+--   suggest_rank -- position in the autocomplete list, a weak popularity
+--                   proxy and explicitly not a volume.
+-- A 0 in any of them would be a measurement of zero, which is a different
+-- and much stronger claim.
+CREATE TABLE IF NOT EXISTS demand_keywords (
+    site         TEXT NOT NULL,
+    keyword      TEXT NOT NULL,
+    source       TEXT NOT NULL,
+    seed         TEXT,
+    -- Rank within the source's own ordering (0-based). Google returns
+    -- autocomplete roughly by popularity, so this orders results without
+    -- claiming a magnitude.
+    suggest_rank INTEGER,
+    -- Google Trends "rising" growth. `rising_label` carries the raw value
+    -- because Trends reports either a percentage OR the literal "Breakout"
+    -- (>5000% growth), and coercing Breakout to a number would invent
+    -- precision. When the label is Breakout, rising_pct stays NULL.
+    rising_pct   REAL,
+    rising_label TEXT,
+    -- Trends "top" relative interest, 0-100 within its own result set.
+    top_value    REAL,
+    volume       REAL,
+    first_seen   TEXT NOT NULL,
+    last_seen    TEXT NOT NULL,
+    PRIMARY KEY (site, keyword, source)
+);
+
 CREATE INDEX IF NOT EXISTS idx_totals_daily_site_date
     ON totals_daily (site, date);
 
@@ -124,6 +162,9 @@ CREATE INDEX IF NOT EXISTS idx_page_daily_site_date
 
 CREATE INDEX IF NOT EXISTS idx_country_daily_site_date
     ON country_daily (site, date);
+
+CREATE INDEX IF NOT EXISTS idx_demand_keywords_site_source
+    ON demand_keywords (site, source);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cwv_snapshots_site_url_captured_at
     ON cwv_snapshots (site, url, captured_at);
@@ -301,6 +342,48 @@ def upsert_country_daily(conn: sqlite3.Connection, rows: Iterable[Mapping]) -> N
             impressions = excluded.impressions,
             ctr = excluded.ctr,
             position = excluded.position
+        """,
+        list(rows),
+    )
+    conn.commit()
+
+
+def upsert_demand_keywords(conn: sqlite3.Connection, rows: Iterable[Mapping]) -> None:
+    """Upsert rows into ``demand_keywords``, keyed on (site, keyword, source).
+
+    Each row is a mapping with keys: site, keyword, source, seed,
+    suggest_rank, rising_pct, rising_label, top_value, volume, first_seen,
+    last_seen.
+
+    ``first_seen`` is preserved on conflict and only ``last_seen`` advances,
+    so a keyword's age is real history rather than the timestamp of the most
+    recent run. That is what makes "this term has been showing up for three
+    months" a statement the data can support.
+
+    The measure columns are overwritten wholesale, including with NULL: a
+    source that stops reporting a value must not leave a stale number behind
+    looking like a current measurement.
+    """
+    conn.executemany(
+        """
+        INSERT INTO demand_keywords (
+            site, keyword, source, seed, suggest_rank,
+            rising_pct, rising_label, top_value, volume,
+            first_seen, last_seen
+        )
+        VALUES (
+            :site, :keyword, :source, :seed, :suggest_rank,
+            :rising_pct, :rising_label, :top_value, :volume,
+            :first_seen, :last_seen
+        )
+        ON CONFLICT (site, keyword, source) DO UPDATE SET
+            seed = excluded.seed,
+            suggest_rank = excluded.suggest_rank,
+            rising_pct = excluded.rising_pct,
+            rising_label = excluded.rising_label,
+            top_value = excluded.top_value,
+            volume = excluded.volume,
+            last_seen = excluded.last_seen
         """,
         list(rows),
     )

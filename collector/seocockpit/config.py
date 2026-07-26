@@ -23,6 +23,16 @@ class Site:
     slug: str
     display_name: str
     brand_token: str
+    # Head terms to feed Google Trends, per site and OPTIONAL by design.
+    #
+    # Trends has a volume floor: measured against the real account,
+    # `naočare` and `sočiva` return data while `naočare za vid` and
+    # `kontaktna sočiva` return nothing at all. Terms broad enough to clear
+    # the floor can also be too broad to be yours -- `zakazivanje` returns
+    # government appointment booking, not booking software -- so these are
+    # chosen by hand rather than derived, and a site with no good head term
+    # simply leaves them empty.
+    trend_seeds: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -76,6 +86,7 @@ def load_config(path: str | Path | None = None) -> Config:
                 slug=slug,
                 display_name=raw_site["display_name"],
                 brand_token=raw_site["brand_token"],
+                trend_seeds=tuple(raw_site.get("trend_seeds") or ()),
             )
         )
 

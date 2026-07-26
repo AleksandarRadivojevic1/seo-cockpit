@@ -95,6 +95,83 @@ def _run(config: Config, collect_fn: Callable, backfill: bool) -> int:
     return 0
 
 
+def _sites_for(config: Config, slug: str | None):
+    if slug is None:
+        return config.sites
+    matches = [s for s in config.sites if s.slug == slug]
+    if not matches:
+        raise SystemExit(f"no site with slug {slug!r} in the config")
+    return matches
+
+
+def _discover(config: Config, slug: str | None) -> int:
+    """Free autocomplete discovery. Seeds come from each site's own pages."""
+    from . import db as db_module
+    from .demand import AutocompleteSource, discover, seeds_from_pages
+
+    conn = db_module.init_db(config.db_path)
+    total = 0
+    for site in _sites_for(config, slug):
+        pages = [
+            row[0]
+            for row in conn.execute(
+                "SELECT DISTINCT page FROM page_daily WHERE site = ?", (site.property,)
+            )
+        ]
+        seeds = seeds_from_pages(pages)
+        if not seeds:
+            logger.info("site=%s no seeds derivable from page_daily yet", site.slug)
+            continue
+        rows = discover(site.property, [AutocompleteSource()], seeds)
+        db_module.upsert_demand_keywords(conn, rows)
+        total += len(rows)
+        logger.info("site=%s seeds=%d keywords=%d", site.slug, len(seeds), len(rows))
+    logger.info("discovery complete: %d keyword rows", total)
+    return 0
+
+
+def _trends(config: Config, slug: str | None, dry_run: bool) -> int:
+    """METERED SerpApi Trends. Never runs on a schedule -- see the CLI help."""
+    import os
+
+    from . import db as db_module
+    from .demand import SerpApiTrendsSource, discover
+
+    api_key = os.environ.get("SERPAPI_KEY")
+    if not api_key:
+        raise SystemExit("SERPAPI_KEY is not set")
+
+    source = SerpApiTrendsSource(api_key)
+    left = source.searches_left()
+    sites = [s for s in _sites_for(config, slug) if s.trend_seeds]
+    planned = sum(len(s.trend_seeds) for s in sites)
+
+    # `left` is None when the account endpoint could not be read. That is
+    # "unknown", not "zero", so it must not silently block a legitimate run --
+    # but spending an unknown budget unasked is worse, so a dry-run is
+    # required to proceed in that case.
+    logger.info(
+        "trends: %d seeds across %d site(s); credits left: %s",
+        planned,
+        len(sites),
+        left if left is not None else "unknown",
+    )
+    if left is not None and planned > left:
+        raise SystemExit(f"refusing to run: {planned} seeds > {left} credits remaining")
+    if dry_run:
+        for site in sites:
+            logger.info("would query site=%s seeds=%s", site.slug, list(site.trend_seeds))
+        return 0
+
+    conn = db_module.init_db(config.db_path)
+    for site in sites:
+        rows = discover(site.property, [source], site.trend_seeds)
+        db_module.upsert_demand_keywords(conn, rows)
+        # Empty is the normal below-the-floor result, not a failure.
+        logger.info("site=%s seeds=%d keywords=%d", site.slug, len(site.trend_seeds), len(rows))
+    return 0
+
+
 def _serve(config: Config, collect_fn: Callable, scheduler_factory: Callable) -> int:
     logger.info(
         "starting scheduler: daily incremental collection at %02d:%02d",
@@ -126,6 +203,32 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "serve", help="Start the long-running daily scheduler (blocks)."
     )
 
+    discover_parser = subparsers.add_parser(
+        "discover",
+        help="Discover market-demand keywords via Google autocomplete (free).",
+    )
+    discover_parser.add_argument(
+        "--site",
+        help="Limit to one site slug. Default: every configured site.",
+    )
+
+    # Deliberately a separate command rather than part of `run`: the SerpApi
+    # free plan is 250 searches/month and a scheduled job across several
+    # seeds would exhaust it without being asked.
+    trends_parser = subparsers.add_parser(
+        "trends",
+        help="Fetch rising Google Trends queries via SerpApi (METERED, 1 credit/seed).",
+    )
+    trends_parser.add_argument(
+        "--site",
+        help="Limit to one site slug. Default: every site with trend_seeds.",
+    )
+    trends_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show which seeds would be queried and the remaining credits, and exit.",
+    )
+
     return parser
 
 
@@ -155,6 +258,10 @@ def main(
         return _run(config, collect_fn, backfill=args.backfill)
     if args.command == "serve":
         return _serve(config, collect_fn, scheduler_factory)
+    if args.command == "discover":
+        return _discover(config, args.site)
+    if args.command == "trends":
+        return _trends(config, args.site, args.dry_run)
 
     parser.error(f"unknown command: {args.command}")
     return 2
