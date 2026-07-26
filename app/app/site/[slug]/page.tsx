@@ -123,7 +123,7 @@ export default async function SitePage({
       <section className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
         <div className="flex items-baseline justify-between gap-2">
           <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            🎯 Striking distance
+            Striking distance
           </h2>
           {signals.strikingDistance.length > 0 && (
             <span className="text-xs tabular-nums text-muted-foreground">
@@ -141,25 +141,25 @@ export default async function SitePage({
           quarter-width real keywords truncate to the point of uselessness. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <SignalList
-          title="📈 Rising"
+          title="Rising"
           entries={signals.rising}
           metric="impressionsDelta"
           emptyMessage="No rising queries"
         />
         <SignalList
-          title="↗ Climbing"
+          title="Climbing"
           entries={signals.climbing}
           metric="positionDelta"
           emptyMessage="No climbing queries"
         />
         <SignalList
-          title="🆕 Emerging"
+          title="Emerging"
           entries={signals.emerging}
           metric="impressions"
           emptyMessage="No emerging queries"
         />
         <SignalList
-          title="⚠ Declining"
+          title="Declining"
           entries={signals.declining}
           metric="impressionsDelta"
           emptyMessage="No declining queries"
