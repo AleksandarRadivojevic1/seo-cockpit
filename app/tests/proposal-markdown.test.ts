@@ -41,6 +41,10 @@ function input(overrides: Partial<ProposalInput> = {}): ProposalInput {
       cls_p75: 0,
       source: "psi",
       form_factor: "PHONE",
+      lh_performance: 84,
+      lh_accessibility: 91,
+      lh_best_practices: 100,
+      lh_seo: 100,
     },
     ...overrides,
   };

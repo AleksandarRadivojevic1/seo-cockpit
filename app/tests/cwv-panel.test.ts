@@ -19,6 +19,10 @@ function cwvRow(overrides: Partial<CwvRow> = {}): CwvRow {
     cls_p75: 0,
     source: "psi",
     form_factor: "PHONE",
+    lh_performance: null,
+    lh_accessibility: null,
+    lh_best_practices: null,
+    lh_seo: null,
     ...overrides,
   };
 }

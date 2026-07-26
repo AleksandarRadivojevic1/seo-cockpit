@@ -55,6 +55,21 @@ export interface CwvRow {
   cls_p75: number | null;
   source: string | null;
   form_factor: string | null;
+  // Lighthouse category scores, 0-100. NULL means the category was not
+  // fetched; 0 is a legitimate score. `source` describes the origin of the
+  // FIELD metrics above (crux | psi) — these categories always come from
+  // PSI/Lighthouse regardless of it.
+  lh_performance: number | null;
+  lh_accessibility: number | null;
+  lh_best_practices: number | null;
+  lh_seo: number | null;
+}
+
+/** One country's aggregated share of a site's traffic over a window. */
+export interface CountryRow {
+  country: string;
+  clicks: number;
+  impressions: number;
 }
 
 // One memoized readonly connection per resolved DB path, so repeated
@@ -152,7 +167,8 @@ export function totalsInRange(
 export function latestCwv(site: string, db: Database.Database = getDb()): CwvRow | null {
   const row = db
     .prepare<[string], CwvRow>(
-      `SELECT site, url, captured_at, lcp_p75, inp_p75, cls_p75, source, form_factor
+      `SELECT site, url, captured_at, lcp_p75, inp_p75, cls_p75, source, form_factor,
+              lh_performance, lh_accessibility, lh_best_practices, lh_seo
        FROM cwv_snapshots
        WHERE site = ?
        ORDER BY captured_at DESC
@@ -160,6 +176,38 @@ export function latestCwv(site: string, db: Database.Database = getDb()): CwvRow
     )
     .get(site);
   return row ?? null;
+}
+
+/**
+ * Per-country totals for a site over an inclusive date range.
+ *
+ * Unlike the query dimension, GSC does NOT anonymize country: summing these
+ * impressions reconciles exactly with `totals_daily` over the same window
+ * (verified against the real DB, 2026-07-26). So a country absent from this
+ * result had genuinely zero impressions — there is no unattributed remainder
+ * to disclose, which is why the map needs no counterpart to the brand ring's
+ * "anonymized" segment.
+ *
+ * Note that a day on which a site had zero impressions produces no country
+ * rows at all, while `totals_daily` still carries an explicit zero row for it.
+ * That asymmetry is correct — zero impressions have no country to attribute —
+ * and is not a collection gap.
+ */
+export function countryRowsInRange(
+  site: string,
+  start: string,
+  end: string,
+  db: Database.Database = getDb()
+): CountryRow[] {
+  return db
+    .prepare<[string, string, string], CountryRow>(
+      `SELECT country, SUM(clicks) AS clicks, SUM(impressions) AS impressions
+       FROM country_daily
+       WHERE site = ? AND date BETWEEN ? AND ?
+       GROUP BY country
+       ORDER BY impressions DESC, country`
+    )
+    .all(site, start, end);
 }
 
 /** All configured sites' display metadata, ordered by display_name. */

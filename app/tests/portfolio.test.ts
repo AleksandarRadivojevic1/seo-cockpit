@@ -42,6 +42,10 @@ function cwvRow(overrides: Partial<CwvRow>): CwvRow {
     cls_p75: null,
     source: "crux",
     form_factor: "PHONE",
+    lh_performance: null,
+    lh_accessibility: null,
+    lh_best_practices: null,
+    lh_seo: null,
     ...overrides,
   };
 }
@@ -162,7 +166,12 @@ describe("buildSiteSummary", () => {
       );
       CREATE TABLE cwv_snapshots (
         site TEXT, url TEXT, captured_at TEXT, lcp_p75 REAL, inp_p75 REAL, cls_p75 REAL,
-        source TEXT, form_factor TEXT
+        source TEXT, form_factor TEXT,
+        lh_performance REAL, lh_accessibility REAL, lh_best_practices REAL, lh_seo REAL
+      );
+      CREATE TABLE country_daily (
+        site TEXT, date TEXT, country TEXT, clicks INT, impressions INT, ctr REAL, position REAL,
+        PRIMARY KEY (site, date, country)
       );
       CREATE TABLE collection_runs (
         id INTEGER PRIMARY KEY, site TEXT, started_at TEXT, finished_at TEXT,

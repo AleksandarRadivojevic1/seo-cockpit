@@ -35,6 +35,17 @@ export function RadarLabels({
         const x = labelRadius * Math.cos(angle);
         const y = labelRadius * Math.sin(angle);
 
+        // LOCAL PATCH — re-apply after any `shadcn add`.
+        // Upstream anchors every label "middle", which centres it on its axis
+        // point, so on the horizontal axes half the text runs back over the
+        // vertex dot and its first character is unreadable ("Accessibility"
+        // renders as "ccessibility"). Anchor away from the centre instead:
+        // start on the right half, end on the left half, middle only at the
+        // top and bottom where the text runs perpendicular to the axis.
+        const cos = Math.cos(angle);
+        const anchor =
+          Math.abs(cos) < 0.2 ? "middle" : cos > 0 ? "start" : "end";
+
         return (
           <motion.g
             animate={{ opacity: 1, x, y }}
@@ -62,7 +73,7 @@ export function RadarLabels({
               fontWeight={500}
               opacity={interactive ? 0.8 : 1}
               style={{ fill: radarCssVars.label }}
-              textAnchor="middle"
+              textAnchor={anchor}
               x={0}
               y={0}
             >

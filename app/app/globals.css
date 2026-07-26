@@ -67,6 +67,11 @@
   --chart-brush-border: var(----chart-brush-border);
   --chart-line-secondary: var(----chart-line-secondary);
   --chart-line-primary: var(----chart-line-primary);
+  --color-legend-track: var(----legend-track);
+  --color-legend-muted-foreground: var(----legend-muted-foreground);
+  --color-legend-muted: var(----legend-muted);
+  --color-legend-foreground: var(----legend-foreground);
+  --color-legend: var(----legend);
 }
 
 :root {
@@ -123,6 +128,29 @@
   --chart-scale-04: oklch(0.68 0.02 106);
   --chart-scale-05: oklch(0.55 0.025 106);
   --chart-scale-pattern-color: oklch(0.96 0.005 106);
+
+  /* Sequential ramp for the country choropleth. One hue (165, the emerald the
+     trend chart already uses for its primary series), monotonically darkening
+     — the correct check for a sequential scale is lightness monotonicity, not
+     adjacent-pair separation.
+
+     NOT Bklit's --chart-scale-*: those run 0.98 -> 0.55 at chroma 0.003-0.025,
+     so step 01 is indistinguishable from an unshaded country on a white
+     surface. That would render a country with 1 impression identically to one
+     with none, which is this project's null-vs-zero bug in geographic form.
+     --geo-none is deliberately CHROMA 0 so "no impressions" is off-ramp by
+     construction rather than merely paler. */
+  --geo-none: oklch(0.95 0 0);
+  --geo-1: oklch(0.9 0.06 165);
+  --geo-2: oklch(0.82 0.1 165);
+  --geo-3: oklch(0.7 0.14 165);
+  --geo-4: oklch(0.56 0.13 165);
+  --geo-border: oklch(0.87 0 0);
+  --legend: oklch(1 0 0);
+  --legend-foreground: oklch(0.141 0.005 285.823);
+  --legend-muted: oklch(0.967 0.001 286.375);
+  --legend-muted-foreground: oklch(0.552 0.016 285.938);
+  --legend-track: oklch(0.92 0.004 286.32);
 }
 
 .dark {
@@ -173,6 +201,22 @@
   --chart-scale-04: oklch(0.58 0.06 270);
   --chart-scale-05: oklch(0.68 0.07 270);
   --chart-scale-pattern-color: oklch(0.145 0 0);
+
+  /* Dark steps are SELECTED against the dark surface, not flipped from light:
+     the ramp still darkens-to-lightens with magnitude, but anchored so the
+     lowest bin reads above oklch(0.145) rather than vanishing into it.
+     --geo-none stays chroma 0 for the same off-ramp reason as in light mode. */
+  --geo-none: oklch(0.26 0 0);
+  --geo-1: oklch(0.42 0.07 165);
+  --geo-2: oklch(0.54 0.1 165);
+  --geo-3: oklch(0.66 0.13 165);
+  --geo-4: oklch(0.79 0.15 165);
+  --geo-border: oklch(0.32 0 0);
+  --legend: oklch(0.21 0.006 285.885);
+  --legend-foreground: oklch(0.985 0 0);
+  --legend-muted: oklch(0.274 0.006 286.033);
+  --legend-muted-foreground: oklch(0.705 0.015 286.067);
+  --legend-track: oklch(0.274 0.006 286.033);
 }
 
 @layer base {

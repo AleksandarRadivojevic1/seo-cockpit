@@ -3,8 +3,12 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import BrandRing from "../../../components/BrandRing";
+import CountryMap from "../../../components/CountryMap";
 import CwvPanel from "../../../components/CwvPanel";
 import EmptyState from "../../../components/EmptyState";
+// LighthouseRadar is kept alongside this: the two are interchangeable in the
+// panel below, so switching back is a one-line change rather than an undo.
+import LighthouseRings from "../../../components/LighthouseRings";
 import SignalList from "../../../components/SignalList";
 import StrikingTable from "../../../components/StrikingTable";
 import TopPagesBar from "../../../components/TopPagesBar";
@@ -12,9 +16,16 @@ import TrendChart from "../../../components/TrendChart";
 import type { TrendPoint } from "../../../components/TrendChart";
 import { Badge } from "../../../components/ui/badge";
 import { buildBrandBreakdown, topPages } from "../../../lib/analysis/breakdown";
+import { buildCountryBreakdown } from "../../../lib/analysis/geography";
 import { deriveSignals } from "../../../lib/analysis/signals";
 import { addDaysUTC, formatISODateUTC, recentVsPrior, windowBounds } from "../../../lib/analysis/windows";
-import { latestCwv, pageRowsInRange, siteConfigBySlug, totalsInRange } from "../../../lib/db";
+import {
+  countryRowsInRange,
+  latestCwv,
+  pageRowsInRange,
+  siteConfigBySlug,
+  totalsInRange,
+} from "../../../lib/db";
 import type { TotalsRow } from "../../../lib/db";
 import { buildSiteSummary } from "../../../lib/portfolio";
 import type { SiteSummary } from "../../../lib/portfolio";
@@ -105,6 +116,9 @@ export default async function SitePage({
     totalImpressions
   );
   const cwv = latestCwv(config.property);
+  const countries = buildCountryBreakdown(
+    countryRowsInRange(config.property, recentStart, recentEnd)
+  );
 
   // "zero" (rows exist, all measured zero) and "not-collected" (no rows at
   // all) both mean "don't draw a chart" here, but they render different
@@ -236,6 +250,23 @@ export default async function SitePage({
           </section>
         </div>
       </div>
+
+      {/* Lighthouse sits beside Core Web Vitals conceptually but in its own
+          row: both read the SAME cwv_snapshots row, so one timestamp covers
+          the pair and they can never describe different moments. */}
+      <section className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
+        <h2 className="pb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          Lighthouse categories
+        </h2>
+        <LighthouseRings row={cwv} />
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
+        <h2 className="pb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          Impressions by country
+        </h2>
+        <CountryMap breakdown={countries} dataState={summary.dataState} />
+      </section>
     </div>
   );
 }
