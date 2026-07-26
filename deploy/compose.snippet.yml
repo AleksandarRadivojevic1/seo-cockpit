@@ -5,9 +5,19 @@
 # stacks. It is nonetheless valid on its own so `docker compose -f
 # deploy/compose.snippet.yml config` can validate it.
 #
-# Paths assume the repo is checked out at ~/server/seo-cockpit, which matches
-# the target Pi (user `acko`, /home/acko/server). Adjust the left-hand side of
-# each bind mount if it lives elsewhere.
+# Layout on the target Pi (user `acko`, /home/acko/server):
+#
+#   ~/server/seo-cockpit/
+#     src/       <- the git checkout (code only; this is the build context)
+#     data/      <- seo.db lives here. PERSISTENT, deliberately OUTSIDE the
+#                   checkout so a re-clone or a hard reset can never delete the
+#                   collected history. The repo gitignores collector/data
+#                   anyway, so it was never going to be version-controlled.
+#     secrets/   <- service-account.json, chmod 600. Same reasoning.
+#
+# sites.yaml resolves `db_path: data/seo.db` and
+# `service_account_path: secrets/service-account.json` RELATIVE to the working
+# directory, which is why the mounts land at /app/data and /app/secrets exactly.
 #
 # Host port 8091 verified free on the target 2026-07-26. Already taken there:
 # 80 homepage, 1880 nodered, 1883 mosquitto, 3000 grafana, 5000 changedetection,
@@ -16,8 +26,8 @@
 services:
   seo-cockpit-collector:
     build:
-      # Context is the repo root; both Dockerfiles expect that.
-      context: ./seo-cockpit
+      # Context is the REPO ROOT (the checkout), which both Dockerfiles expect.
+      context: ./seo-cockpit/src
       dockerfile: deploy/Dockerfile.collector
     image: seo-cockpit-collector:latest
     container_name: seo-cockpit-collector
@@ -32,12 +42,12 @@ services:
       TZ: UTC
     volumes:
       # The database. READ-WRITE here: this is the only writer.
-      - ./seo-cockpit/collector/data:/app/data
+      - ./seo-cockpit/data:/app/data
       # Config and credentials, both read-only. sites.yaml resolves db_path and
       # service_account_path RELATIVE to the working directory, which is why
       # the mounts land at /app/data and /app/secrets exactly.
-      - ./seo-cockpit/collector/sites.yaml:/app/sites.yaml:ro
-      - ./seo-cockpit/collector/secrets:/app/secrets:ro
+      - ./seo-cockpit/src/collector/sites.yaml:/app/sites.yaml:ro
+      - ./seo-cockpit/secrets:/app/secrets:ro
     # `serve` blocks on the scheduler (daily 03:00 UTC). For the one-shot
     # backfill in T15, run a throwaway container instead of changing this:
     #   docker compose run --rm seo-cockpit-collector \
@@ -45,7 +55,7 @@ services:
 
   seo-cockpit-dashboard:
     build:
-      context: ./seo-cockpit
+      context: ./seo-cockpit/src
       dockerfile: deploy/Dockerfile.dashboard
     image: seo-cockpit-dashboard:latest
     container_name: seo-cockpit-dashboard
@@ -67,7 +77,7 @@ services:
       # Under WAL, opening a database read-only still requires CREATING the
       # -shm sidecar, so a read-only mount fails outright with
       # SQLITE_READONLY_DIRECTORY — verified, not assumed. See DEPLOY.md.
-      - ./seo-cockpit/collector/data:/data:ro
+      - ./seo-cockpit/data:/data:ro
     ports:
       # Host 8091 -> container 3000. VERIFY 8091 IS FREE on the Pi before
       # bringing this up (`docker compose ps`, `ss -ltnp | grep 8091`); if it
