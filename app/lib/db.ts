@@ -37,6 +37,15 @@ export interface PageRow {
   position: number;
 }
 
+export interface RunRow {
+  site: string;
+  startedAt: string;
+  finishedAt: string | null;
+  rowsWritten: number | null;
+  status: string;
+  error: string | null;
+}
+
 export interface CwvRow {
   site: string;
   url: string;
@@ -177,6 +186,36 @@ export function siteConfigBySlug(
     )
     .get(slug);
   return row ?? null;
+}
+
+/**
+ * The newest collection_runs row for each site that has ever run.
+ *
+ * A site configured in `sites` but absent from the result has simply never
+ * run — that absence is the signal, and `lib/health.ts` turns it into a
+ * 'never-run' state distinct from a failure. Deliberately no placeholder
+ * row is synthesised here, because "never ran" and "ran and failed" are
+ * different facts and must not arrive looking alike.
+ */
+export function latestRunPerSite(db: Database.Database = getDb()): RunRow[] {
+  return db
+    .prepare<[], RunRow>(
+      `SELECT site,
+              started_at   AS startedAt,
+              finished_at  AS finishedAt,
+              rows_written AS rowsWritten,
+              status,
+              error
+       FROM collection_runs
+       WHERE id IN (
+         SELECT id FROM collection_runs cr
+         WHERE cr.site = collection_runs.site
+         ORDER BY started_at DESC, id DESC
+         LIMIT 1
+       )
+       ORDER BY site`
+    )
+    .all();
 }
 
 /**

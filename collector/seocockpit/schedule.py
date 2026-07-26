@@ -15,6 +15,7 @@ No fetching/DB logic lives here; everything is delegated to ``collect_once``.
 from __future__ import annotations
 
 import argparse
+import datetime
 import logging
 import sys
 from typing import Callable
@@ -27,11 +28,19 @@ from .config import Config, load_config
 
 logger = logging.getLogger(__name__)
 
-# Default daily run time (server-local time, per APScheduler's default
-# scheduler timezone): early morning, well after GSC's data finalizes for
-# the previous day and outside any expected traffic/maintenance window.
+# Default daily run time, in UTC (see SCHEDULE_TIMEZONE): early morning,
+# well after GSC's data finalizes for the previous day and outside any
+# expected traffic/maintenance window.
 DEFAULT_HOUR = 3
 DEFAULT_MINUTE = 0
+
+# Pin the cron trigger to UTC rather than inheriting APScheduler's default
+# (the host's local zone). Every timestamp this collector writes is UTC, and
+# the dashboard's health panel decides "did a run happen since the last
+# expected slot" in UTC. On a Europe/Belgrade host the unpinned trigger fired
+# at 01:00 UTC in summer and 02:00 UTC in winter, so the panel could not tell
+# a missed run from a clock offset.
+SCHEDULE_TIMEZONE = datetime.timezone.utc
 
 
 def _log_summary(results: list[dict]) -> None:
@@ -59,8 +68,9 @@ def build_scheduler(
     """Build (but do not start) a ``BlockingScheduler`` with one daily job.
 
     The job calls ``collect_fn(config, "incremental")`` at ``hour:minute``
-    every day. The caller is responsible for calling ``.start()`` -- this
-    function never blocks, which keeps it directly unit-testable.
+    **UTC** every day (see ``SCHEDULE_TIMEZONE``). The caller is responsible
+    for calling ``.start()`` -- this function never blocks, which keeps it
+    directly unit-testable.
     """
     scheduler = BlockingScheduler()
 
@@ -70,7 +80,7 @@ def build_scheduler(
 
     scheduler.add_job(
         _job,
-        CronTrigger(hour=hour, minute=minute),
+        CronTrigger(hour=hour, minute=minute, timezone=SCHEDULE_TIMEZONE),
         id="daily_incremental_collection",
         name="daily incremental collection",
     )

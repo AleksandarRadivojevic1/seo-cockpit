@@ -7,6 +7,7 @@ import path from "node:path";
 import {
   getDb,
   latestCwv,
+  latestRunPerSite,
   latestTotalsDate,
   listSiteConfigs,
   listSites,
@@ -110,6 +111,16 @@ beforeAll(() => {
   insertSite.run(SITE_A, "alexrad", "Alexrad", "alexrad", "2026-01-10T00:00:00Z");
   insertSite.run(SITE_B, "skedio", "Skedio", "skedio", "2026-01-10T00:00:00Z");
   insertSite.run(SITE_C, "optika-cajs", "Optika Čajš", "optika", "2026-01-10T00:00:00Z");
+
+  // Collection runs. SITE_A has two, so latestRunPerSite must return only
+  // the newer one; SITE_B has a single failed run; SITE_C has none at all,
+  // which is a configured-but-never-run site, not a broken one.
+  const insertRun = writeDb.prepare(
+    "INSERT INTO collection_runs (id, site, started_at, finished_at, rows_written, status, error) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  );
+  insertRun.run(1, SITE_A, "2026-01-09T03:00:00Z", "2026-01-09T03:00:12Z", 40, "success", null);
+  insertRun.run(2, SITE_A, "2026-01-10T03:00:00Z", "2026-01-10T03:00:10Z", 12, "success", null);
+  insertRun.run(3, SITE_B, "2026-01-10T03:00:10Z", "2026-01-10T03:00:14Z", 0, "failed", "GSC 403");
 
   writeDb.close();
 });
@@ -248,6 +259,33 @@ describe("latestTotalsDate", () => {
   it("returns null for a configured site with no totals_daily rows at all", () => {
     const db = getDb(fixturePath);
     expect(latestTotalsDate(SITE_C, db)).toBeNull();
+  });
+});
+
+describe("latestRunPerSite", () => {
+  it("returns only the newest run for a site that has several", () => {
+    const db = getDb(fixturePath);
+    const runs = latestRunPerSite(db);
+
+    const siteA = runs.filter((r) => r.site === SITE_A);
+    expect(siteA).toHaveLength(1);
+    expect(siteA[0].startedAt).toBe("2026-01-10T03:00:00Z");
+    expect(siteA[0].rowsWritten).toBe(12);
+  });
+
+  it("carries the status and error of a failed run", () => {
+    const db = getDb(fixturePath);
+    const siteB = latestRunPerSite(db).find((r) => r.site === SITE_B);
+
+    expect(siteB?.status).toBe("failed");
+    expect(siteB?.error).toBe("GSC 403");
+  });
+
+  it("omits a configured site that has never run", () => {
+    // Absence here is the signal health.ts turns into 'never-run'. Inventing
+    // a placeholder row would erase the distinction from a real failure.
+    const db = getDb(fixturePath);
+    expect(latestRunPerSite(db).map((r) => r.site)).not.toContain(SITE_C);
   });
 });
 

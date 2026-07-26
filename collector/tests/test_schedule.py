@@ -102,6 +102,20 @@ def test_build_scheduler_registers_exactly_one_daily_job():
     assert calls == [(config, "incremental")]
 
 
+def test_build_scheduler_fires_in_utc_not_server_local_time():
+    """Every timestamp this collector writes is UTC, but CronTrigger takes
+    its timezone from the scheduler's default (the system's) unless told
+    otherwise. On a Europe/Belgrade host that made "03:00" fire at 01:00
+    UTC, and at 02:00 UTC after the DST change -- so the dashboard could
+    not tell whether a run was missed. Pin it.
+    """
+    config = _DummyConfig()
+    scheduler = build_scheduler(config, collect_fn=lambda cfg, mode: None)
+
+    trigger = scheduler.get_jobs()[0].trigger
+    assert str(trigger.timezone) == "UTC"
+
+
 def test_build_scheduler_custom_hour_minute():
     config = _DummyConfig()
     scheduler = build_scheduler(config, collect_fn=lambda cfg, mode: None, hour=5, minute=30)

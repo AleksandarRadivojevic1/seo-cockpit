@@ -1,9 +1,22 @@
 import { connection } from "next/server";
 
 import EmptyState from "../components/EmptyState";
+import HealthPanel from "../components/HealthPanel";
 import SiteCard from "../components/SiteCard";
-import { listSiteConfigs } from "../lib/db";
+import { latestRunPerSite, listSiteConfigs } from "../lib/db";
+import { buildCollectorHealth } from "../lib/health";
 import { buildSiteSummary } from "../lib/portfolio";
+
+// The collector's daily cron slot, in UTC (collector/seocockpit/schedule.py
+// pins CronTrigger to UTC for exactly this reason), plus how late a run may
+// be before the panel calls it missing. Overridable so a changed collector
+// schedule doesn't silently make the health panel lie.
+function scheduleConfig() {
+  return {
+    hourUtc: Number(process.env.COLLECTOR_SCHEDULE_HOUR ?? 3),
+    graceHours: Number(process.env.COLLECTOR_GRACE_HOURS ?? 2),
+  };
+}
 
 /** Current UTC date as "YYYY-MM-DD", matching lib/analysis/windows.ts. */
 function todayUTC(): string {
@@ -35,9 +48,11 @@ export default async function Home() {
   await connection();
 
   const asOf = todayUTC();
+  const now = new Date();
   const configs = listSiteConfigs();
   const summaries = configs.map((config) => buildSiteSummary(config, asOf));
   const lastCollected = latestCollectedDate(summaries.map((s) => s.freshness.latestDate));
+  const health = buildCollectorHealth(latestRunPerSite(), configs, now, scheduleConfig());
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
@@ -47,6 +62,8 @@ export default async function Home() {
           {lastCollected ? `Last collected ${lastCollected}` : "No data collected yet"}
         </p>
       </header>
+
+      <HealthPanel health={health} now={now} />
 
       {summaries.length === 0 ? (
         <EmptyState
