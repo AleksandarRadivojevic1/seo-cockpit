@@ -2,9 +2,10 @@
 
 import { curveMonotoneX } from "@visx/curve";
 
+import { Area, AreaChart } from "./charts/area-chart";
 import { chartCssVars } from "./charts/chart-context";
+import { ChartTooltip } from "./charts/tooltip";
 import { Grid } from "./charts/grid";
-import { Line, LineChart } from "./charts/line-chart";
 import { XAxis } from "./charts/x-axis";
 import { YAxis } from "./charts/y-axis";
 
@@ -79,34 +80,46 @@ export default function TrendChart({ data }: TrendChartProps) {
           is what actually releases the height to the parent. The vendored
           prop doc claiming "omit to fill a sized parent" is wrong. */}
       <div className="h-56 w-full sm:h-64">
-      <LineChart
-        aspectRatio=""
-        className="h-full"
-        data={data}
-        margin={{ top: 20, right: 52, bottom: 32, left: 44 }}
-        status="ready"
-        xDataKey="date"
-      >
-        <Grid horizontal />
-        <XAxis />
-        {/* Without axis labels a dual-scale chart is actively misleading: clicks
-            (max ~3) and impressions (max ~20) get drawn at comparable heights
-            with nothing to tell you the scales differ. */}
-        <YAxis numTicks={4} />
-        <YAxis numTicks={4} orientation="right" yAxisId="right" />
-        {/* curveMonotoneX, never curveNatural (the vendored default): these
-            series are mostly zeros with isolated spikes, and a natural spline
-            overshoots between such points -- inventing peaks and dipping below
-            zero, which is impossible for a click count. Monotone stays bounded
-            by its data. */}
-        <Line curve={curveMonotoneX} dataKey="clicks" stroke={CLICKS_STROKE} />
-        <Line
-          curve={curveMonotoneX}
-          dataKey="impressions"
-          stroke={IMPRESSIONS_STROKE}
-          yAxisId="right"
-        />
-      </LineChart>
+        <AreaChart
+          aspectRatio=""
+          className="h-full"
+          data={data}
+          margin={{ top: 20, right: 52, bottom: 32, left: 44 }}
+          status="ready"
+          xDataKey="date"
+        >
+          <Grid horizontal />
+          <XAxis />
+          {/* Without axis labels a dual-scale chart is actively misleading: clicks
+              (max ~3) and impressions (max ~20) get drawn at comparable heights
+              with nothing to tell you the scales differ. */}
+          <YAxis numTicks={4} />
+          <YAxis numTicks={4} orientation="right" yAxisId="right" />
+          <ChartTooltip />
+          {/* curveMonotoneX, never curveNatural: these series are mostly zeros
+              with isolated spikes, and a natural spline overshoots between such
+              points -- inventing peaks and dipping below zero, which is
+              impossible for a click count. Monotone stays bounded by its data.
+
+              Impressions is drawn first so the smaller clicks series and its
+              fill sit on top rather than behind it. Impressions carries only a
+              stroke (fillOpacity 0): two stacked translucent fills on
+              independent y-scales muddy each other without adding meaning. */}
+          <Area
+            curve={curveMonotoneX}
+            dataKey="impressions"
+            fillOpacity={0}
+            stroke={IMPRESSIONS_STROKE}
+            yAxisId="right"
+          />
+          <Area
+            curve={curveMonotoneX}
+            dataKey="clicks"
+            fill={CLICKS_STROKE}
+            fillOpacity={0.22}
+            stroke={CLICKS_STROKE}
+          />
+        </AreaChart>
       </div>
     </div>
   );
