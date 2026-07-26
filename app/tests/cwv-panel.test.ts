@@ -104,8 +104,14 @@ describe("displayPath", () => {
 });
 
 describe("TopPagesBar", () => {
-  it("scales bars against the top page", () => {
-    const html = renderToStaticMarkup(
+  it("sizes its container to the number of pages", () => {
+    // Bar geometry moved to Bklit's chart, which measures its parent via
+    // ParentSize -- unavailable under renderToStaticMarkup, so the bars
+    // themselves can't be asserted here (same constraint documented in
+    // line-chart.test.tsx; the rendering is verified by screenshot).
+    // What this component still owns is the height, which must grow with
+    // the row count or bars change thickness per site.
+    const two = renderToStaticMarkup(
       createElement(TopPagesBar, {
         pages: [
           { page: "https://x.test/", clicks: 25, impressions: 200, position: 3 },
@@ -114,9 +120,15 @@ describe("TopPagesBar", () => {
         dataState: "ok",
       })
     );
+    const one = renderToStaticMarkup(
+      createElement(TopPagesBar, {
+        pages: [{ page: "https://x.test/", clicks: 25, impressions: 200, position: 3 }],
+        dataState: "ok",
+      })
+    );
 
-    expect(html).toContain("width:100%");
-    expect(html).toContain("width:50%");
+    expect(two).toContain("height:108px");
+    expect(one).toContain("height:74px");
   });
 
   it("separates 'no page data' from 'not collected'", () => {
@@ -152,12 +164,25 @@ describe("BrandRing", () => {
     expect(html).toMatch(/withholds the query/i);
   });
 
-  it("renders three arc segments, not two", () => {
+  it("accounts for all three segments, not two", () => {
+    // The slice arcs are drawn by Bklit's pie chart, which measures its
+    // parent and so renders nothing under renderToStaticMarkup. The legend
+    // is server-rendered though, and it is what actually states the claim:
+    // three labelled segments whose shares add up to the whole.
     const html = renderToStaticMarkup(
       createElement(BrandRing, { breakdown: buildBrandBreakdown(40, 12, 212) })
     );
 
-    expect(html.match(/<circle/g)).toHaveLength(3);
+    expect(html).toContain("Brand");
+    expect(html).toContain("Non-brand");
+    expect(html).toContain("Anonymized");
+
+    // Anchored to element text so the chart wrapper's `width:100%` style
+    // isn't mistaken for a segment share.
+    const shares = [...html.matchAll(/>(\d+)%</g)].map((m) => Number(m[1]));
+    expect(shares).toHaveLength(3);
+    // 19 + 6 + 75 -- rounding may cost a point, but never a whole segment.
+    expect(shares.reduce((a, b) => a + b, 0)).toBeGreaterThanOrEqual(99);
   });
 
   it("shows an empty state for a window with no impressions", () => {

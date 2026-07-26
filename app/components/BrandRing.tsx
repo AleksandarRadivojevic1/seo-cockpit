@@ -1,12 +1,13 @@
+"use client";
+
 import EmptyState from "./EmptyState";
+import { PieChart } from "./charts/pie-chart";
+import { PieSlice } from "./charts/pie-slice";
 import type { BrandBreakdown } from "../lib/analysis/breakdown";
 
 interface BrandRingProps {
   breakdown: BrandBreakdown;
 }
-
-const RADIUS = 42;
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 const SEGMENT_COLORS = {
   brand: "oklch(0.74 0.15 165)",
@@ -22,14 +23,21 @@ interface Segment {
 }
 
 /**
- * Brand vs non-brand vs anonymized impressions.
+ * Brand vs non-brand vs anonymized impressions, on Bklit's pie chart.
+ *
+ * Deliberately PieChart and not RingChart. Bklit's ring chart draws
+ * concentric progress arcs (`innerRadius + index * strokeWidth`, each its
+ * own `value / maxValue`) — the activity-rings shape. That reads as three
+ * independent metrics, which is exactly the wrong claim here: these three
+ * numbers are parts of one whole and must visibly sum to it. A pie's
+ * slices are shares of a single circle, so the geometry itself carries the
+ * "these add up" meaning.
  *
  * The third segment is not decoration. GSC withholds the query for rare
  * searches, so brand + non-brand is materially LESS than the site total —
  * 75% of Optika Cajs's impressions are unattributed on real data. A
- * two-slice ring would either drop that majority or rescale the two known
- * slices to fill the circle, and both would misstate what was measured.
- * The remainder is drawn, labelled, and explained.
+ * two-slice chart would either drop that majority or rescale the two known
+ * slices to fill the circle.
  */
 export default function BrandRing({ breakdown }: BrandRingProps) {
   const { brandImpressions, nonBrandImpressions, anonymizedImpressions, totalImpressions } =
@@ -50,33 +58,24 @@ export default function BrandRing({ breakdown }: BrandRingProps) {
     },
   ];
 
-  let offset = 0;
-
   return (
-    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
-      <svg viewBox="0 0 100 100" className="h-32 w-32 shrink-0 -rotate-90" role="img"
-        aria-label={`Impressions: ${brandImpressions} brand, ${nonBrandImpressions} non-brand, ${anonymizedImpressions} anonymized`}
-      >
-        {segments.map((segment) => {
-          const fraction = segment.value / totalImpressions;
-          const dash = fraction * CIRCUMFERENCE;
-          const element = (
-            <circle
-              key={segment.key}
-              cx="50"
-              cy="50"
-              r={RADIUS}
-              fill="none"
-              stroke={SEGMENT_COLORS[segment.key]}
-              strokeWidth="12"
-              strokeDasharray={`${dash} ${CIRCUMFERENCE - dash}`}
-              strokeDashoffset={-offset}
-            />
-          );
-          offset += dash;
-          return element;
-        })}
-      </svg>
+    <div className="flex flex-col items-center gap-4 sm:flex-row sm:gap-6">
+      <div className="h-32 w-32 shrink-0">
+        <PieChart
+          data={segments.map((segment) => ({
+            label: segment.label,
+            value: segment.value,
+            color: SEGMENT_COLORS[segment.key],
+          }))}
+          innerRadius={38}
+          padAngle={0.02}
+          cornerRadius={2}
+        >
+          {segments.map((segment, index) => (
+            <PieSlice key={segment.key} index={index} />
+          ))}
+        </PieChart>
+      </div>
 
       <ul className="flex w-full min-w-0 flex-col gap-2">
         {segments.map((segment) => (

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
@@ -113,6 +114,28 @@ export default async function SitePage({
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
+      {/* An inline chevron, not a glyph or emoji: this is a navigation
+          affordance rather than decoration, and the label carries the
+          meaning on its own if the icon fails to paint. */}
+      <Link
+        href="/"
+        className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <svg
+          aria-hidden="true"
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+        Back to dashboard
+      </Link>
+
       <header className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
         <div className="min-w-0">
           <h1 className="truncate text-xl font-semibold text-zinc-900 dark:text-zinc-50">
