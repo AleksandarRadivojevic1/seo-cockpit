@@ -156,10 +156,23 @@ def _default_psi_query(url: str) -> dict | None:
     returns ``None`` if the request truly yields no body; genuine "no
     usable lab metrics" detection happens in ``_parse_psi_response``.
 
-    Real network call; not exercised by unit tests.
+    **Every category is requested explicitly.** PSI runs only
+    ``performance`` by default, so without these parameters the other three
+    Lighthouse scores are simply absent from the response and persist as
+    NULL forever -- which is exactly what the first real collection run
+    wrote before this was fixed. The parser has always handled four
+    categories; the request only ever asked for one.
+
+    The network call itself is not unit-tested, but the parameters are --
+    see ``test_default_psi_query_asks_for_all_four_lighthouse_categories``.
     """
     params = urllib.parse.urlencode(
-        {"url": url, "strategy": "mobile", "key": _api_key()}
+        [
+            ("url", url),
+            ("strategy", "mobile"),
+            ("key", _api_key()),
+            *((("category"), category) for category in _LIGHTHOUSE_CATEGORIES),
+        ]
     )
     with urllib.request.urlopen(f"{_PSI_ENDPOINT}?{params}") as response:
         return json.load(response)

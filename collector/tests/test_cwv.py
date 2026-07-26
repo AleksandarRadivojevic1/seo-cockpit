@@ -1,4 +1,5 @@
 import json
+import urllib.parse
 from pathlib import Path
 
 import pytest
@@ -290,3 +291,53 @@ def test_is_crux_not_found_error_false_for_genuine_errors():
     other_error = json.dumps({"error": {"code": 403, "message": "API key not valid"}})
 
     assert not _is_crux_not_found_error(other_error)
+
+
+# ---------------------------------------------------------------------------
+# The PSI request itself
+# ---------------------------------------------------------------------------
+
+
+def test_default_psi_query_asks_for_all_four_lighthouse_categories(monkeypatch):
+    """PSI runs ONLY the performance category unless the others are named.
+
+    This is the request half of the Lighthouse feature and it was missing:
+    the parser handled four categories while the query asked for one, so
+    accessibility/best-practices/seo were always None on real data. The
+    fixture happened to contain all four, so nothing caught it until a real
+    collection run wrote three NULL columns.
+    """
+    import urllib.request
+
+    from seocockpit.cwv import _default_psi_query
+
+    seen = {}
+
+    class _FakeResponse:
+        def read(self):
+            return b'{"lighthouseResult": {"audits": {}, "categories": {}}}'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    def fake_urlopen(url, *args, **kwargs):
+        seen["url"] = url
+        return _FakeResponse()
+
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr("json.load", lambda f: {"lighthouseResult": {}})
+
+    _default_psi_query("https://example.com/")
+
+    requested = urllib.parse.parse_qs(urllib.parse.urlparse(seen["url"]).query)
+    assert sorted(requested["category"]) == [
+        "accessibility",
+        "best-practices",
+        "performance",
+        "seo",
+    ]
+    assert requested["strategy"] == ["mobile"]
