@@ -143,9 +143,17 @@ export default async function SitePage({
           </h1>
           <p className="truncate font-mono text-xs text-muted-foreground">{config.property}</p>
         </div>
-        <Badge className={cn("shrink-0", FRESHNESS_STYLES[summary.freshness.level])}>
-          {FRESHNESS_LABEL[summary.freshness.level]}
-        </Badge>
+        <div className="flex shrink-0 items-center gap-3">
+          <Link
+            href={`/site/${slug}/proposal`}
+            className="text-sm text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+          >
+            Findings
+          </Link>
+          <Badge className={cn("shrink-0", FRESHNESS_STYLES[summary.freshness.level])}>
+            {FRESHNESS_LABEL[summary.freshness.level]}
+          </Badge>
+        </div>
       </header>
 
       <div className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">

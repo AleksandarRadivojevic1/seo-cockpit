@@ -1,8 +1,8 @@
 import EmptyState from "./EmptyState";
 import { cn } from "../lib/utils";
 import type { CwvRow } from "../lib/db";
-
-export type MetricVerdict = "good" | "needs-work" | "poor" | "not-measured";
+import { formatMetricValue, metricVerdict } from "../lib/cwv-format";
+import type { MetricVerdict } from "../lib/cwv-format";
 
 const VERDICT_STYLES: Record<MetricVerdict, string> = {
   good: "text-emerald-700 dark:text-emerald-400",
@@ -10,37 +10,6 @@ const VERDICT_STYLES: Record<MetricVerdict, string> = {
   poor: "text-red-700 dark:text-red-400",
   "not-measured": "text-muted-foreground",
 };
-
-/** Core Web Vitals "good"/"needs improvement" p75 thresholds. */
-const THRESHOLDS = {
-  lcp: { good: 2500, poor: 4000 },
-  inp: { good: 200, poor: 500 },
-  cls: { good: 0.1, poor: 0.25 },
-} as const;
-
-/**
- * Verdict for one metric.
- *
- * `null` is "not-measured" and is deliberately NOT a verdict. A zero, by
- * contrast, is a real measurement and usually the best possible one — a CLS
- * of 0 means nothing shifted. Collapsing the two (via `!value` or `?? 0`)
- * would print "good" over metrics nobody measured, which is the more
- * dangerous direction of this project's recurring bug.
- */
-export function metricVerdict(
-  value: number | null,
-  metric: keyof typeof THRESHOLDS
-): MetricVerdict {
-  if (value === null) return "not-measured";
-  const { good, poor } = THRESHOLDS[metric];
-  return value <= good ? "good" : value <= poor ? "needs-work" : "poor";
-}
-
-export function formatMetric(value: number | null, metric: keyof typeof THRESHOLDS): string {
-  if (value === null) return "Not measured";
-  if (metric === "cls") return value.toFixed(3);
-  return `${Math.round(value)} ms`;
-}
 
 interface CwvPanelProps {
   row: CwvRow | null;
@@ -78,7 +47,7 @@ export default function CwvPanel({ row }: CwvPanelProps) {
             <div key={key} className="flex flex-col gap-0.5">
               <span className="text-xs text-muted-foreground uppercase">{label}</span>
               <span className={cn("text-lg font-semibold tabular-nums", VERDICT_STYLES[verdict])}>
-                {formatMetric(value, key)}
+                {formatMetricValue(value, key)}
               </span>
             </div>
           );

@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import CwvPanel, { formatMetric, metricVerdict } from "../components/CwvPanel";
+import CwvPanel from "../components/CwvPanel";
+import { formatMetricValue, metricVerdict } from "../lib/cwv-format";
 import TopPagesBar, { displayPath } from "../components/TopPagesBar";
 import BrandRing from "../components/BrandRing";
 import { buildBrandBreakdown } from "../lib/analysis/breakdown";
@@ -49,11 +50,11 @@ describe("metricVerdict", () => {
 
 describe("formatMetric", () => {
   it("renders a measured zero as a number, not as absent", () => {
-    expect(formatMetric(0, "cls")).toBe("0.000");
+    expect(formatMetricValue(0, "cls")).toBe("0.000");
   });
 
   it("says so when a metric was not measured", () => {
-    expect(formatMetric(null, "inp")).toBe("Not measured");
+    expect(formatMetricValue(null, "inp")).toBe("Not measured");
   });
 });
 
