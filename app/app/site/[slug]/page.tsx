@@ -2,10 +2,13 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import EmptyState from "../../../components/EmptyState";
+import SignalList from "../../../components/SignalList";
+import StrikingTable from "../../../components/StrikingTable";
 import TrendChart from "../../../components/TrendChart";
 import type { TrendPoint } from "../../../components/TrendChart";
 import { Badge } from "../../../components/ui/badge";
-import { addDaysUTC, formatISODateUTC, windowBounds } from "../../../lib/analysis/windows";
+import { deriveSignals } from "../../../lib/analysis/signals";
+import { addDaysUTC, formatISODateUTC, recentVsPrior, windowBounds } from "../../../lib/analysis/windows";
 import { siteConfigBySlug, totalsInRange } from "../../../lib/db";
 import type { TotalsRow } from "../../../lib/db";
 import { buildSiteSummary } from "../../../lib/portfolio";
@@ -84,6 +87,9 @@ export default async function SitePage({
   const rows = totalsInRange(config.property, recentStart, recentEnd);
   const series = buildTrendSeries(rows, recentStart, recentEnd);
 
+  const { recent, prior } = recentVsPrior(config.property, asOf);
+  const signals = deriveSignals(recent, prior, config.brandToken);
+
   // "zero" (rows exist, all measured zero) and "not-collected" (no rows at
   // all) both mean "don't draw a chart" here, but they render different
   // copy -- collapsing them would be the exact conflation this project
@@ -112,6 +118,52 @@ export default async function SitePage({
         ) : (
           <EmptyState title="Not collected yet" />
         )}
+      </div>
+
+      <section className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            🎯 Striking distance
+          </h2>
+          {signals.strikingDistance.length > 0 && (
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {signals.strikingDistance.length} queries
+            </span>
+          )}
+        </div>
+        <p className="pt-0.5 pb-2 text-xs text-muted-foreground/70">
+          Page-2 queries ranked by remaining upside.
+        </p>
+        <StrikingTable entries={signals.strikingDistance} dataState={summary.dataState} />
+      </section>
+
+      {/* Two columns, not four: query text is the content here, and at
+          quarter-width real keywords truncate to the point of uselessness. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <SignalList
+          title="📈 Rising"
+          entries={signals.rising}
+          metric="impressionsDelta"
+          emptyMessage="No rising queries"
+        />
+        <SignalList
+          title="↗ Climbing"
+          entries={signals.climbing}
+          metric="positionDelta"
+          emptyMessage="No climbing queries"
+        />
+        <SignalList
+          title="🆕 Emerging"
+          entries={signals.emerging}
+          metric="impressions"
+          emptyMessage="No emerging queries"
+        />
+        <SignalList
+          title="⚠ Declining"
+          entries={signals.declining}
+          metric="impressionsDelta"
+          emptyMessage="No declining queries"
+        />
       </div>
     </div>
   );
