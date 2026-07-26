@@ -7,7 +7,6 @@ import {
   NOISE_FLOOR_IMPRESSIONS,
   POSITION_MOVE_MIN,
   RISING_MIN_DELTA,
-  STRIKING_MAX_POS,
   STRIKING_MIN_POS,
 } from "../lib/analysis/signals";
 

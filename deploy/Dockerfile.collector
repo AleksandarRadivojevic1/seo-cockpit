@@ -1,0 +1,37 @@
+# seo-cockpit collector — Python, writes collector/data/seo.db.
+#
+# Build context is the REPO ROOT:
+#   docker build -f deploy/Dockerfile.collector -t seo-cockpit-collector .
+#
+# Nothing application-specific is baked in. sites.yaml, the service-account
+# key and the database all arrive as mounts, so the same image runs any
+# configuration and no secret ever enters a layer.
+
+FROM python:3.14-slim
+
+# Never write .pyc into the mounted tree; unbuffered so `docker logs` shows
+# progress during a long PSI run instead of dumping at exit.
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Requirements first so a source change does not re-resolve dependencies.
+# --no-cache-dir keeps the wheel cache out of the layer.
+COPY collector/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY collector/seocockpit ./seocockpit
+
+# Run as a non-root user. The uid is fixed at 10001 rather than left to the
+# base image because it has to line up with ownership of the bind-mounted
+# data/ directory on the host — see DEPLOY.md.
+RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin collector \
+    && mkdir -p /app/data /app/secrets \
+    && chown -R collector:collector /app
+USER collector
+
+# `serve` starts the blocking APScheduler loop (daily, 03:00 UTC — the trigger
+# is pinned to UTC, see 11e). Override with `run` or `run --backfill` for a
+# one-shot pass; that is exactly what the T15 backfill step does.
+CMD ["python", "-m", "seocockpit.schedule", "serve"]

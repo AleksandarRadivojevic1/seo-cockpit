@@ -1,0 +1,75 @@
+# seo-cockpit — snippet to fold into ~/server/docker-compose.yml on the Pi.
+#
+# This file is a SNIPPET, not a standalone compose file: the two services below
+# are meant to be pasted under the existing `services:` key alongside the other
+# stacks. It is nonetheless valid on its own so `docker compose -f
+# deploy/compose.snippet.yml config` can validate it.
+#
+# Paths assume the repo is checked out at ~/server/seo-cockpit, which matches
+# the target Pi (user `acko`, /home/acko/server). Adjust the left-hand side of
+# each bind mount if it lives elsewhere.
+#
+# Host port 8091 verified free on the target 2026-07-26. Already taken there:
+# 80 homepage, 1880 nodered, 1883 mosquitto, 3000 grafana, 5000 changedetection,
+# 8086 influxdb, 8090 ntfy, 51820/udp wireguard.
+
+services:
+  seo-cockpit-collector:
+    build:
+      # Context is the repo root; both Dockerfiles expect that.
+      context: ./seo-cockpit
+      dockerfile: deploy/Dockerfile.collector
+    image: seo-cockpit-collector:latest
+    container_name: seo-cockpit-collector
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      # PSI + CrUX. The service account (mounted below) covers Search Console;
+      # this key is separate and must have BOTH the PageSpeed Insights API and
+      # the Chrome UX Report API enabled — a CrUX 403 raises rather than
+      # degrading, so a key missing CrUX yields zero CWV snapshots.
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:?set GOOGLE_API_KEY in ~/server/.env}
+      TZ: UTC
+    volumes:
+      # The database. READ-WRITE here: this is the only writer.
+      - ./seo-cockpit/collector/data:/app/data
+      # Config and credentials, both read-only. sites.yaml resolves db_path and
+      # service_account_path RELATIVE to the working directory, which is why
+      # the mounts land at /app/data and /app/secrets exactly.
+      - ./seo-cockpit/collector/sites.yaml:/app/sites.yaml:ro
+      - ./seo-cockpit/collector/secrets:/app/secrets:ro
+    # `serve` blocks on the scheduler (daily 03:00 UTC). For the one-shot
+    # backfill in T15, run a throwaway container instead of changing this:
+    #   docker compose run --rm seo-cockpit-collector \
+    #     python -m seocockpit.schedule run --backfill
+
+  seo-cockpit-dashboard:
+    build:
+      context: ./seo-cockpit
+      dockerfile: deploy/Dockerfile.dashboard
+    image: seo-cockpit-dashboard:latest
+    container_name: seo-cockpit-dashboard
+    restart: unless-stopped
+    depends_on:
+      - seo-cockpit-collector
+    environment:
+      SEO_DB_PATH: /data/seo.db
+      # Drives the health panel's schedule-aware "is the collector running"
+      # check. These MUST match the collector's actual schedule or the panel
+      # will report a healthy collector as down, which trains you to ignore it.
+      COLLECTOR_SCHEDULE_HOUR: "3"
+      COLLECTOR_GRACE_HOURS: "2"
+      TZ: UTC
+    volumes:
+      # READ-ONLY, and that is load-bearing rather than decorative.
+      #
+      # It is only possible because the database stays in journal_mode=delete.
+      # Under WAL, opening a database read-only still requires CREATING the
+      # -shm sidecar, so a read-only mount fails outright with
+      # SQLITE_READONLY_DIRECTORY — verified, not assumed. See DEPLOY.md.
+      - ./seo-cockpit/collector/data:/data:ro
+    ports:
+      # Host 8091 -> container 3000. VERIFY 8091 IS FREE on the Pi before
+      # bringing this up (`docker compose ps`, `ss -ltnp | grep 8091`); if it
+      # is taken, change the host side here and in the Homepage tile.
+      - "8091:3000"

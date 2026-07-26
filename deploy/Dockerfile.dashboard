@@ -1,0 +1,69 @@
+# seo-cockpit dashboard — Next.js, reads collector/data/seo.db read-only.
+#
+# Build context is the REPO ROOT:
+#   docker build -f deploy/Dockerfile.dashboard -t seo-cockpit-dashboard .
+
+# ---------------------------------------------------------------- deps ------
+FROM node:24-slim AS deps
+WORKDIR /app
+
+# better-sqlite3 is a native module. It publishes prebuilds, but there is no
+# guarantee one exists for every node/arch pair, and a silent fallback to
+# source compilation without a toolchain fails the build in a confusing way.
+# Installing the toolchain here makes the outcome deterministic; none of it
+# reaches the runtime stage.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY app/package.json app/package-lock.json ./
+RUN npm ci
+
+# --------------------------------------------------------------- build ------
+FROM node:24-slim AS builder
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY app/ ./
+
+# Telemetry off: this builds on a home server, and a build should not phone
+# home. SEO_DB_PATH is deliberately NOT set — every page is dynamic, so the
+# build must never open the database. If a future change makes a page try to
+# read at build time, `next build` will fail loudly here rather than baking a
+# snapshot of the data into the image.
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Escape hatch for the 4GB Pi: `next build` is the memory-hungry step and the
+# device runs a full Home Assistant stack alongside it. Empty by default so the
+# build is unconstrained where memory is plentiful.
+#   docker compose build --build-arg NODE_OPTIONS=--max-old-space-size=1536 ...
+ARG NODE_OPTIONS=""
+ENV NODE_OPTIONS=${NODE_OPTIONS}
+
+RUN npm run build
+
+# ------------------------------------------------------------- runtime ------
+FROM node:24-slim AS runtime
+WORKDIR /app
+
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
+
+# Fixed uid so the read-only data mount can be reasoned about on the host.
+RUN useradd --uid 10002 --create-home --shell /usr/sbin/nologin dashboard
+
+# The standalone server does not include public/ or .next/static — those are
+# copied in explicitly, per Next's output-tracing docs.
+COPY --from=builder --chown=dashboard:dashboard /app/.next/standalone ./
+COPY --from=builder --chown=dashboard:dashboard /app/.next/static ./.next/static
+COPY --from=builder --chown=dashboard:dashboard /app/public ./public
+
+USER dashboard
+EXPOSE 3000
+
+# SEO_DB_PATH must be supplied at run time and point at the mounted database.
+# lib/db.ts opens it { readonly: true, fileMustExist: true } and throws a clear
+# error if the variable is missing, so a misconfigured container fails fast.
+CMD ["node", "server.js"]

@@ -1,0 +1,36 @@
+# Build context is the repo root for both images. Everything excluded here is
+# either huge, host-specific, or must never enter a layer.
+
+.git
+.gitignore
+
+# Secrets and data. Neither Dockerfile COPYs these — both arrive as mounts at
+# run time — but excluding them from the CONTEXT means they cannot be added by
+# a careless future COPY, and they never cross the docker daemon boundary.
+collector/secrets/
+collector/data/
+collector/.env
+app/.env
+app/.env.*
+
+# Host-specific dependency trees. These dwarf the rest of the repo and are
+# rebuilt inside the images anyway.
+app/node_modules/
+app/.next/
+collector/.venv/
+collector/.pytest_cache/
+**/__pycache__/
+*.pyc
+
+# Build artefacts and local tooling.
+app/tsconfig.tsbuildinfo
+.superpowers/
+docs/
+
+# Documentation and planning: not needed to build or run either service.
+DESIGN.md
+PLAN.md
+README.md
+app/README.md
+app/AGENTS.md
+app/CLAUDE.md
