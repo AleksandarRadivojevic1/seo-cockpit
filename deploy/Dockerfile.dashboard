@@ -7,16 +7,27 @@
 FROM node:24-slim AS deps
 WORKDIR /app
 
-# better-sqlite3 is a native module. It publishes prebuilds, but there is no
-# guarantee one exists for every node/arch pair, and a silent fallback to
-# source compilation without a toolchain fails the build in a confusing way.
-# Installing the toolchain here makes the outcome deterministic; none of it
+# better-sqlite3 is a native module and must be COMPILED HERE, not downloaded.
+#
+# Its published arm64 prebuild is linked against GLIBC 2.38, while node:24-slim
+# (Debian bookworm) provides 2.36. Installing normally therefore succeeds, and
+# the container then dies at request time with:
+#
+#   Error: /lib/aarch64-linux-gnu/libm.so.6: version `GLIBC_2.38' not found
+#          (required by .../better-sqlite3/prebuilds/linux-arm64.node)
+#   code: 'ERR_DLOPEN_FAILED'
+#
+# This is invisible on an x86 build host, where the matching prebuild loads
+# fine — it only appears on the arm64 target. npm_config_build_from_source
+# makes prebuild-install skip the download and build against the glibc that is
+# actually present, which is what the toolchain below is for. None of it
 # reaches the runtime stage.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
 
 COPY app/package.json app/package-lock.json ./
+ENV npm_config_build_from_source=true
 RUN npm ci
 
 # --------------------------------------------------------------- build ------
