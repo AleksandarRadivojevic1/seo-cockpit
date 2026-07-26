@@ -1,15 +1,19 @@
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import BrandRing from "../../../components/BrandRing";
+import CwvPanel from "../../../components/CwvPanel";
 import EmptyState from "../../../components/EmptyState";
 import SignalList from "../../../components/SignalList";
 import StrikingTable from "../../../components/StrikingTable";
+import TopPagesBar from "../../../components/TopPagesBar";
 import TrendChart from "../../../components/TrendChart";
 import type { TrendPoint } from "../../../components/TrendChart";
 import { Badge } from "../../../components/ui/badge";
+import { buildBrandBreakdown, topPages } from "../../../lib/analysis/breakdown";
 import { deriveSignals } from "../../../lib/analysis/signals";
 import { addDaysUTC, formatISODateUTC, recentVsPrior, windowBounds } from "../../../lib/analysis/windows";
-import { siteConfigBySlug, totalsInRange } from "../../../lib/db";
+import { latestCwv, pageRowsInRange, siteConfigBySlug, totalsInRange } from "../../../lib/db";
 import type { TotalsRow } from "../../../lib/db";
 import { buildSiteSummary } from "../../../lib/portfolio";
 import type { SiteSummary } from "../../../lib/portfolio";
@@ -90,6 +94,17 @@ export default async function SitePage({
   const { recent, prior } = recentVsPrior(config.property, asOf);
   const signals = deriveSignals(recent, prior, config.brandToken);
 
+  const pages = topPages(pageRowsInRange(config.property, recentStart, recentEnd), 8);
+  // Window total from totals_daily, NOT from summing query rows: the gap
+  // between the two is exactly the anonymized segment BrandRing draws.
+  const totalImpressions = rows.reduce((sum, row) => sum + row.impressions, 0);
+  const breakdown = buildBrandBreakdown(
+    signals.brandSplit.brand.impressions,
+    signals.brandSplit.nonBrand.impressions,
+    totalImpressions
+  );
+  const cwv = latestCwv(config.property);
+
   // "zero" (rows exist, all measured zero) and "not-collected" (no rows at
   // all) both mean "don't draw a chart" here, but they render different
   // copy -- collapsing them would be the exact conflation this project
@@ -164,6 +179,31 @@ export default async function SitePage({
           metric="impressionsDelta"
           emptyMessage="No declining queries"
         />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <section className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
+          <h2 className="pb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Top pages
+          </h2>
+          <TopPagesBar pages={pages} dataState={summary.dataState} />
+        </section>
+
+        <div className="flex flex-col gap-4">
+          <section className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
+            <h2 className="pb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              Impressions by query type
+            </h2>
+            <BrandRing breakdown={breakdown} />
+          </section>
+
+          <section className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
+            <h2 className="pb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              Core Web Vitals
+            </h2>
+            <CwvPanel row={cwv} />
+          </section>
+        </div>
       </div>
     </div>
   );

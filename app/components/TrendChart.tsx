@@ -66,8 +66,22 @@ export default function TrendChart({ data }: TrendChartProps) {
         </span>
       </div>
 
+      {/* Fixed height, not an aspect ratio. "2.4 / 1" made the chart scale
+          with container width -- ~540px tall in a 1300px column, which gave
+          28 daily points far more vertical room than they carry information
+          for and pushed the tables below off-screen.
+
+          aspectRatio="" is deliberate and NOT the same as omitting the prop:
+          LineChart declares `aspectRatio = "2 / 1"` as a DEFAULT PARAMETER,
+          so omitting it still applies 2/1 and the chart overflows any sized
+          parent (verified -- axis labels bled over the panel below). It
+          applies the style only when the value is truthy, so an empty string
+          is what actually releases the height to the parent. The vendored
+          prop doc claiming "omit to fill a sized parent" is wrong. */}
+      <div className="h-56 w-full sm:h-64">
       <LineChart
-        aspectRatio="2.4 / 1"
+        aspectRatio=""
+        className="h-full"
         data={data}
         margin={{ top: 20, right: 52, bottom: 32, left: 44 }}
         status="ready"
@@ -93,6 +107,7 @@ export default function TrendChart({ data }: TrendChartProps) {
           yAxisId="right"
         />
       </LineChart>
+      </div>
     </div>
   );
 }
