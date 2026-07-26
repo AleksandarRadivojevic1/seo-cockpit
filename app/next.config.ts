@@ -15,6 +15,16 @@ const nextConfig: NextConfig = {
   // this machine (a /home/ar/package-lock.json). Pinning it keeps the Docker
   // build independent of whatever sits above the build context.
   outputFileTracingRoot: path.join(import.meta.dirname, "."),
+
+  // better-sqlite3 resolves its native addon through a path BUILT AT RUNTIME
+  // (`path.join(__dirname, '..', 'build', 'Release', 'better_sqlite3.node')`
+  // in lib/binding.js), which the static tracer cannot follow. Without this,
+  // the compiled binary is left out of .next/standalone and every route 500s
+  // with ERR_DLOPEN_FAILED. Every route reads the database, so the include is
+  // unconditional.
+  outputFileTracingIncludes: {
+    "/**/*": ["./node_modules/better-sqlite3/build/Release/*.node"],
+  },
 };
 
 export default nextConfig;

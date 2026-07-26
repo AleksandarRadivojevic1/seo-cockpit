@@ -27,8 +27,24 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY app/package.json app/package-lock.json ./
-ENV npm_config_build_from_source=true
 RUN npm ci
+
+# `npm_config_build_from_source` alone does NOT work here, which cost a
+# deploy cycle to discover. better-sqlite3 ships EVERY platform's prebuild
+# inside its npm tarball, and its binding.gyp literally runs lib/binding.js to
+# decide whether to compile — that check finds prebuilds/linux-arm64.node and
+# reports "already prebuilt", so node-gyp skips the build entirely and the
+# flag is a no-op.
+#
+# Removing the prebuilds directory is what forces a real compile. It is safe
+# because lib/index.js resolves through getBinding(), which falls back to
+# build/Release/better_sqlite3.node when no prebuild is present. (Only the
+# platform subpath exports, e.g. `better-sqlite3/linux-arm64`, hard-require the
+# prebuild — we import the package root, so the fallback applies.)
+RUN rm -rf node_modules/better-sqlite3/prebuilds \
+    && npm rebuild better-sqlite3 --build-from-source \
+    && test -f node_modules/better-sqlite3/build/Release/better_sqlite3.node \
+    && echo "better-sqlite3 compiled against local glibc"
 
 # --------------------------------------------------------------- build ------
 FROM node:24-slim AS builder
