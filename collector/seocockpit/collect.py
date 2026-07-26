@@ -14,12 +14,15 @@ small pure helpers it's built from) for a later task to call on a schedule.
 from __future__ import annotations
 
 import datetime
+import logging
 from typing import Callable
 
 from . import cwv as cwv_module
 from . import db
 from . import gsc as gsc_module
 from .config import Config
+
+logger = logging.getLogger(__name__)
 
 # GSC's Search Analytics data isn't final for the most recent ~2-3 days, so
 # every window ends this many days before "today".
@@ -75,13 +78,21 @@ def collect_once(
     """Run one collection pass over every site in ``config``.
 
     For each site (in order): fetch GSC Search Analytics for the mode's
-    date window, upsert totals/query/page rows, fetch one current CWV
-    snapshot for the homepage, and record a ``collection_runs`` row. Each
-    site's body runs inside its own try/except -- one site raising is
+    date window, upsert totals/query/page/country rows, fetch one current
+    CWV snapshot for the homepage, and record a ``collection_runs`` row.
+    Each site's body runs inside its own try/except -- one site raising is
     recorded as a ``"failed"`` run with the error message and does not
     prevent the remaining sites from being collected.
 
-    Note on partial writes: the three GSC upserts self-commit
+    The CWV fetch has a **second, nested** try/except of its own. A CWV
+    failure leaves the run ``"success"`` with the GSC rows counted, and
+    records the error separately (``cwv_error``, also written to the run's
+    ``error`` column with a ``cwv:`` prefix) rather than discarding it.
+    Search data is the point of this collector; failing a whole site's run
+    because PageSpeed Insights timed out would both hide good data and,
+    since 11d calls PSI on every fetch, happen often.
+
+    Note on partial writes: the four GSC upserts self-commit
     individually (see ``db``). If a *later* write raises after an earlier
     one has committed (e.g. ``upsert_page_daily`` fails after
     ``upsert_totals`` succeeded), that site is marked ``"failed"`` with
@@ -115,7 +126,9 @@ def collect_once(
     Returns:
         A list of one dict per site, in config order:
         ``{"site": property, "status": "success"|"failed", "rows": int,
-        "error": str | None}``. ``rows`` is 0 for failed sites.
+        "error": str | None, "cwv_error": str | None}``. ``rows`` is 0 for
+        failed sites. A site with ``status="success"`` and a non-null
+        ``cwv_error`` collected its search data but not its CWV snapshot.
     """
     if today is None:
         today = datetime.date.today()
@@ -160,24 +173,39 @@ def collect_once(
             db.upsert_totals(conn, sa.totals)
             db.upsert_query_daily(conn, sa.by_query)
             db.upsert_page_daily(conn, sa.by_page)
-
-            snap = fetch_cwv_fn(_homepage_url(site.property))
-            if snap is not None:
-                db.insert_cwv(conn, snap.to_db_row(site.property, captured_at))
+            db.upsert_country_daily(conn, sa.by_country)
 
             rows_written = (
                 len(sa.totals)
                 + len(sa.by_query)
                 + len(sa.by_page)
-                + (1 if snap is not None else 0)
+                + len(sa.by_country)
             )
-            db.finish_run(conn, run_id, "success", None, rows_written)
+
+            # Deliberately its own try/except, outside the GSC one: a CWV
+            # failure must not condemn GSC rows that already committed.
+            cwv_error: str | None = None
+            try:
+                snap = fetch_cwv_fn(_homepage_url(site.property))
+                if snap is not None:
+                    db.insert_cwv(conn, snap.to_db_row(site.property, captured_at))
+                    rows_written += 1
+            except Exception as e:  # noqa: BLE001 - isolate CWV from GSC
+                cwv_error = f"cwv: {e}"
+                logger.warning(
+                    "CWV fetch failed for %s (GSC data still collected): %s",
+                    site.property,
+                    e,
+                )
+
+            db.finish_run(conn, run_id, "success", cwv_error, rows_written)
             results.append(
                 {
                     "site": site.property,
                     "status": "success",
                     "rows": rows_written,
-                    "error": None,
+                    "error": cwv_error,
+                    "cwv_error": cwv_error,
                 }
             )
         except Exception as e:  # noqa: BLE001 - isolate one site's failure
@@ -188,6 +216,7 @@ def collect_once(
                     "status": "failed",
                     "rows": 0,
                     "error": str(e),
+                    "cwv_error": None,
                 }
             )
 

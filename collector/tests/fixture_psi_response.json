@@ -9,6 +9,28 @@
         "id": "cumulative-layout-shift",
         "numericValue": 0.021
       }
+    },
+    "categories": {
+      "performance": {
+        "id": "performance",
+        "title": "Performance",
+        "score": 0.88
+      },
+      "accessibility": {
+        "id": "accessibility",
+        "title": "Accessibility",
+        "score": 0.92
+      },
+      "best-practices": {
+        "id": "best-practices",
+        "title": "Best Practices",
+        "score": 1
+      },
+      "seo": {
+        "id": "seo",
+        "title": "SEO",
+        "score": 0.91
+      }
     }
   }
 }

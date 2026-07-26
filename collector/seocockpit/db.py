@@ -5,7 +5,8 @@ Schema (per DESIGN.md):
 - ``totals_daily``      PK (site, date)
 - ``query_daily``       PK (site, date, query)
 - ``page_daily``        PK (site, date, page)
-- ``cwv_snapshots``     append-only, no PK (site, url, captured_at) grain
+- ``country_daily``     PK (site, date, country)
+- ``cwv_snapshots``     one row per (site, url, captured_at), UNIQUE-indexed
 - ``collection_runs``   id INTEGER PRIMARY KEY AUTOINCREMENT
 - ``sites``             PK (property); display metadata for the dashboard
 
@@ -65,6 +66,17 @@ CREATE TABLE IF NOT EXISTS page_daily (
     PRIMARY KEY (site, date, page)
 );
 
+CREATE TABLE IF NOT EXISTS country_daily (
+    site TEXT NOT NULL,
+    date TEXT NOT NULL,
+    country TEXT NOT NULL,
+    clicks INTEGER,
+    impressions INTEGER,
+    ctr REAL,
+    position REAL,
+    PRIMARY KEY (site, date, country)
+);
+
 CREATE TABLE IF NOT EXISTS cwv_snapshots (
     site TEXT NOT NULL,
     url TEXT NOT NULL,
@@ -73,7 +85,11 @@ CREATE TABLE IF NOT EXISTS cwv_snapshots (
     inp_p75 REAL,
     cls_p75 REAL,
     source TEXT NOT NULL,
-    form_factor TEXT
+    form_factor TEXT,
+    lh_performance REAL,
+    lh_accessibility REAL,
+    lh_best_practices REAL,
+    lh_seo REAL
 );
 
 CREATE TABLE IF NOT EXISTS sites (
@@ -106,23 +122,98 @@ CREATE INDEX IF NOT EXISTS idx_query_daily_site_query_date
 CREATE INDEX IF NOT EXISTS idx_page_daily_site_date
     ON page_daily (site, date);
 
-CREATE INDEX IF NOT EXISTS idx_cwv_snapshots_site_url_captured_at
+CREATE INDEX IF NOT EXISTS idx_country_daily_site_date
+    ON country_daily (site, date);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cwv_snapshots_site_url_captured_at
     ON cwv_snapshots (site, url, captured_at);
 """
+
+_CWV_INDEX = "idx_cwv_snapshots_site_url_captured_at"
+
+# Lighthouse category scores, added to cwv_snapshots in Task 11d. All
+# nullable REAL 0-100: NULL means "not fetched", and 0 is a legitimate
+# Lighthouse score -- never conflate them.
+_CWV_LIGHTHOUSE_COLUMNS = (
+    "lh_performance",
+    "lh_accessibility",
+    "lh_best_practices",
+    "lh_seo",
+)
+
+
+def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
+    return (
+        conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
+        ).fetchone()
+        is not None
+    )
+
+
+def _migrate_cwv_snapshots(conn: sqlite3.Connection) -> None:
+    """Bring a pre-Task-11d ``cwv_snapshots`` table up to the current schema.
+
+    ``_SCHEMA`` is all ``IF NOT EXISTS``, so it cannot alter a table that
+    already exists -- an existing ``seo.db`` would keep the old column set
+    and, worse, keep the old *non-unique* index under the name the new
+    ``CREATE UNIQUE INDEX IF NOT EXISTS`` expects, silently leaving
+    duplicates possible. This runs before ``_SCHEMA`` and is a no-op on a
+    fresh database.
+
+    Three steps, in this order:
+
+    1. Add any missing Lighthouse category columns. They are nullable, so
+       rows collected before 11d correctly read as "not fetched".
+    2. Drop the index if it exists and is not UNIQUE (the pre-11d shape).
+    3. De-duplicate ``(site, url, captured_at)``, keeping the highest
+       ``rowid`` -- the most recently written row, matching the
+       last-write-wins semantics ``insert_cwv`` now has. Without this the
+       unique index in ``_SCHEMA`` would fail to create on any database
+       that already accumulated duplicates.
+    """
+    if not _table_exists(conn, "cwv_snapshots"):
+        return
+
+    existing = {
+        row[1] for row in conn.execute("PRAGMA table_info(cwv_snapshots)").fetchall()
+    }
+    for column in _CWV_LIGHTHOUSE_COLUMNS:
+        if column not in existing:
+            conn.execute(f"ALTER TABLE cwv_snapshots ADD COLUMN {column} REAL")
+
+    for _seq, name, unique, *_rest in conn.execute(
+        "PRAGMA index_list(cwv_snapshots)"
+    ).fetchall():
+        if name == _CWV_INDEX and not unique:
+            conn.execute(f"DROP INDEX {_CWV_INDEX}")
+
+    conn.execute(
+        """
+        DELETE FROM cwv_snapshots
+        WHERE rowid NOT IN (
+            SELECT MAX(rowid) FROM cwv_snapshots
+            GROUP BY site, url, captured_at
+        )
+        """
+    )
+    conn.commit()
 
 
 def init_db(path: str | Path) -> sqlite3.Connection:
     """Create the schema at ``path`` if it doesn't already exist.
 
     Idempotent: safe to call repeatedly against the same file (uses
-    ``CREATE TABLE/INDEX IF NOT EXISTS``). Ensures the parent directory
-    exists. Returns an open connection to the database, ready for use by
-    the other functions in this module.
+    ``CREATE TABLE/INDEX IF NOT EXISTS``, and the migration below checks
+    before it changes anything). Ensures the parent directory exists.
+    Returns an open connection to the database, ready for use by the other
+    functions in this module.
     """
     db_path = Path(path)
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
     conn = sqlite3.connect(db_path)
+    _migrate_cwv_snapshots(conn)
     conn.executescript(_SCHEMA)
     conn.commit()
     return conn
@@ -194,6 +285,28 @@ def upsert_page_daily(conn: sqlite3.Connection, rows: Iterable[Mapping]) -> None
     conn.commit()
 
 
+def upsert_country_daily(conn: sqlite3.Connection, rows: Iterable[Mapping]) -> None:
+    """Upsert rows into ``country_daily``, keyed on (site, date, country).
+
+    Each row is a mapping with keys: site, date, country, clicks,
+    impressions, ctr, position. ``country`` is GSC's lowercase ISO-3166-1
+    alpha-3 code (``srb``, ``usa``), stored verbatim.
+    """
+    conn.executemany(
+        """
+        INSERT INTO country_daily (site, date, country, clicks, impressions, ctr, position)
+        VALUES (:site, :date, :country, :clicks, :impressions, :ctr, :position)
+        ON CONFLICT (site, date, country) DO UPDATE SET
+            clicks = excluded.clicks,
+            impressions = excluded.impressions,
+            ctr = excluded.ctr,
+            position = excluded.position
+        """,
+        list(rows),
+    )
+    conn.commit()
+
+
 def upsert_sites(conn: sqlite3.Connection, rows: Iterable[Mapping]) -> None:
     """Upsert rows into ``sites``, keyed on ``property``.
 
@@ -219,17 +332,27 @@ def upsert_sites(conn: sqlite3.Connection, rows: Iterable[Mapping]) -> None:
 
 
 def insert_cwv(conn: sqlite3.Connection, row: Mapping) -> None:
-    """Insert one CWV snapshot into ``cwv_snapshots``.
+    """Write one CWV snapshot into ``cwv_snapshots``, replacing by key.
 
-    Append-only: snapshots are historical observations, not upserted. Row
-    keys: site, url, captured_at, lcp_p75, inp_p75, cls_p75 (all three may
-    be None), source ('crux' or 'psi'), form_factor.
+    Snapshots are a history *across days*: one row per
+    ``(site, url, captured_at)``. ``captured_at`` is start-of-day UTC, so
+    two collection runs on the same day address the same row -- the second
+    replaces the first rather than duplicating it (the index is UNIQUE).
+
+    Row keys: site, url, captured_at, lcp_p75, inp_p75, cls_p75 (all three
+    may be None), source ('crux' or 'psi', describing the origin of the
+    *field* metrics), form_factor, and the four Lighthouse category scores
+    lh_performance / lh_accessibility / lh_best_practices / lh_seo (0-100,
+    always from PSI regardless of ``source``; None means not fetched).
     """
     conn.execute(
         """
-        INSERT INTO cwv_snapshots
-            (site, url, captured_at, lcp_p75, inp_p75, cls_p75, source, form_factor)
-        VALUES (:site, :url, :captured_at, :lcp_p75, :inp_p75, :cls_p75, :source, :form_factor)
+        INSERT OR REPLACE INTO cwv_snapshots
+            (site, url, captured_at, lcp_p75, inp_p75, cls_p75, source, form_factor,
+             lh_performance, lh_accessibility, lh_best_practices, lh_seo)
+        VALUES (:site, :url, :captured_at, :lcp_p75, :inp_p75, :cls_p75, :source,
+                :form_factor, :lh_performance, :lh_accessibility, :lh_best_practices,
+                :lh_seo)
         """,
         dict(row),
     )

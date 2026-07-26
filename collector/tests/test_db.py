@@ -7,6 +7,7 @@ from seocockpit.db import (
     init_db,
     insert_cwv,
     start_run,
+    upsert_country_daily,
     upsert_page_daily,
     upsert_query_daily,
     upsert_sites,
@@ -14,6 +15,68 @@ from seocockpit.db import (
 )
 
 SITE = "sc-domain:example.com"
+
+# The cwv_snapshots schema as it shipped before Task 11d: no Lighthouse
+# category columns, and a NON-unique index. Written out literally (rather
+# than derived from db._SCHEMA) so the migration tests keep testing the
+# real upgrade path even as the current schema moves on.
+_LEGACY_CWV_SCHEMA = """
+CREATE TABLE cwv_snapshots (
+    site TEXT NOT NULL,
+    url TEXT NOT NULL,
+    captured_at TEXT NOT NULL,
+    lcp_p75 REAL,
+    inp_p75 REAL,
+    cls_p75 REAL,
+    source TEXT NOT NULL,
+    form_factor TEXT
+);
+
+CREATE INDEX idx_cwv_snapshots_site_url_captured_at
+    ON cwv_snapshots (site, url, captured_at);
+"""
+
+
+def _legacy_db(path, rows=()):
+    """Create a pre-11d cwv_snapshots table at ``path`` holding ``rows``."""
+    legacy = sqlite3.connect(path)
+    legacy.executescript(_LEGACY_CWV_SCHEMA)
+    legacy.executemany(
+        "INSERT INTO cwv_snapshots "
+        "(site, url, captured_at, lcp_p75, inp_p75, cls_p75, source, form_factor) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        rows,
+    )
+    legacy.commit()
+    legacy.close()
+
+
+def _cwv_row(**overrides):
+    row = {
+        "site": SITE,
+        "url": "https://example.com/",
+        "captured_at": "2026-07-20T00:00:00+00:00",
+        "lcp_p75": 2100.0,
+        "inp_p75": 150.0,
+        "cls_p75": 0.05,
+        "source": "crux",
+        "form_factor": "PHONE",
+        "lh_performance": 88.0,
+        "lh_accessibility": 92.0,
+        "lh_best_practices": 100.0,
+        "lh_seo": 91.0,
+    }
+    row.update(overrides)
+    return row
+
+
+def _index_is_unique(conn, table, index_name):
+    for _seq, name, unique, *_rest in conn.execute(
+        f"PRAGMA index_list({table})"
+    ).fetchall():
+        if name == index_name:
+            return bool(unique)
+    raise AssertionError(f"index {index_name} not found on {table}")
 
 
 @pytest.fixture()
@@ -33,6 +96,7 @@ def test_init_db_creates_expected_tables(conn):
         "totals_daily",
         "query_daily",
         "page_daily",
+        "country_daily",
         "cwv_snapshots",
         "collection_runs",
         "sites",
@@ -187,41 +251,213 @@ def test_upsert_query_daily_multiple_rows_in_one_call(conn):
     assert count == 2
 
 
-def test_insert_cwv_appends_rows_without_upsert(conn):
-    row = {
-        "site": SITE,
-        "url": "https://example.com/",
-        "captured_at": "2026-07-20T00:00:00",
-        "lcp_p75": 2.1,
-        "inp_p75": 150.0,
-        "cls_p75": 0.05,
-        "source": "crux",
-        "form_factor": "PHONE",
-    }
-    insert_cwv(conn, row)
-    insert_cwv(conn, row)
+def test_insert_cwv_same_key_twice_yields_one_replaced_row(conn):
+    """``captured_at`` is start-of-day UTC, so two runs on the same day share
+    a key. Without the unique index + INSERT OR REPLACE they silently
+    accumulate duplicate snapshots for one (site, url, day).
+    """
+    insert_cwv(conn, _cwv_row(lcp_p75=2100.0))
+    insert_cwv(conn, _cwv_row(lcp_p75=1800.0))
+
+    rows = conn.execute("SELECT lcp_p75 FROM cwv_snapshots").fetchall()
+    assert rows == [(1800.0,)]  # one row, latest value wins
+
+
+def test_insert_cwv_keeps_separate_rows_per_captured_at(conn):
+    """The history property the replace must not destroy: different days
+    are different snapshots.
+    """
+    insert_cwv(conn, _cwv_row(captured_at="2026-07-20T00:00:00+00:00"))
+    insert_cwv(conn, _cwv_row(captured_at="2026-07-21T00:00:00+00:00"))
 
     count = conn.execute("SELECT COUNT(*) FROM cwv_snapshots").fetchone()[0]
     assert count == 2
 
 
 def test_insert_cwv_allows_null_metrics(conn):
-    row = {
-        "site": SITE,
-        "url": "https://example.com/",
-        "captured_at": "2026-07-20T00:00:00",
-        "lcp_p75": None,
-        "inp_p75": None,
-        "cls_p75": None,
-        "source": "psi",
-        "form_factor": "PHONE",
-    }
-    insert_cwv(conn, row)
+    insert_cwv(
+        conn,
+        _cwv_row(
+            lcp_p75=None,
+            inp_p75=None,
+            cls_p75=None,
+            source="psi",
+            lh_performance=None,
+            lh_accessibility=None,
+            lh_best_practices=None,
+            lh_seo=None,
+        ),
+    )
 
     fetched = conn.execute(
-        "SELECT lcp_p75, inp_p75, cls_p75 FROM cwv_snapshots"
+        "SELECT lcp_p75, inp_p75, cls_p75, "
+        "lh_performance, lh_accessibility, lh_best_practices, lh_seo "
+        "FROM cwv_snapshots"
     ).fetchone()
-    assert fetched == (None, None, None)
+    assert fetched == (None,) * 7
+
+
+def test_insert_cwv_persists_lighthouse_categories(conn):
+    insert_cwv(conn, _cwv_row())
+
+    fetched = conn.execute(
+        "SELECT lh_performance, lh_accessibility, lh_best_practices, lh_seo "
+        "FROM cwv_snapshots"
+    ).fetchone()
+    assert fetched == (88.0, 92.0, 100.0, 91.0)
+
+
+def test_insert_cwv_stores_a_zero_lighthouse_score_distinctly_from_not_fetched(conn):
+    """NULL means "not fetched"; 0 is a legitimate Lighthouse score. Storing
+    them the same way would make an unmeasured site look like a broken one.
+    """
+    insert_cwv(conn, _cwv_row(url="https://example.com/zero", lh_performance=0.0))
+    insert_cwv(conn, _cwv_row(url="https://example.com/absent", lh_performance=None))
+
+    scored = conn.execute(
+        "SELECT lh_performance FROM cwv_snapshots WHERE url=?",
+        ("https://example.com/zero",),
+    ).fetchone()[0]
+    unfetched = conn.execute(
+        "SELECT lh_performance FROM cwv_snapshots WHERE url=?",
+        ("https://example.com/absent",),
+    ).fetchone()[0]
+
+    assert scored == 0.0
+    assert unfetched is None
+    assert scored != unfetched
+
+
+# ---------------------------------------------------------------------------
+# Migration of an existing (pre-11d) database
+# ---------------------------------------------------------------------------
+
+
+def test_init_db_adds_lighthouse_columns_to_a_legacy_cwv_table(tmp_path):
+    db_path = tmp_path / "seo.db"
+    _legacy_db(
+        db_path,
+        rows=[
+            (SITE, "https://example.com/", "2026-07-20T00:00:00+00:00",
+             2100.0, 150.0, 0.05, "psi", "PHONE"),
+        ],
+    )
+
+    conn = init_db(db_path)
+
+    columns = {
+        row[1] for row in conn.execute("PRAGMA table_info(cwv_snapshots)").fetchall()
+    }
+    assert {
+        "lh_performance",
+        "lh_accessibility",
+        "lh_best_practices",
+        "lh_seo",
+    } <= columns
+
+    # The pre-existing row survives and reads as "not fetched", not as zero.
+    fetched = conn.execute(
+        "SELECT lcp_p75, lh_performance, lh_accessibility, lh_best_practices, lh_seo "
+        "FROM cwv_snapshots"
+    ).fetchone()
+    assert fetched == (2100.0, None, None, None, None)
+    conn.close()
+
+
+def test_init_db_dedupes_legacy_cwv_rows_and_makes_the_index_unique(tmp_path):
+    """The legacy index is not UNIQUE, so an existing DB can already hold
+    duplicate (site, url, captured_at) rows. Creating the unique index over
+    them would fail; the migration must dedupe first, keeping the newest.
+    """
+    db_path = tmp_path / "seo.db"
+    key = (SITE, "https://example.com/", "2026-07-20T00:00:00+00:00")
+    _legacy_db(
+        db_path,
+        rows=[
+            (*key, 2100.0, 150.0, 0.05, "psi", "PHONE"),
+            (*key, 1800.0, 140.0, 0.04, "psi", "PHONE"),  # newest: wins
+            (SITE, "https://example.com/other", "2026-07-20T00:00:00+00:00",
+             3000.0, 200.0, 0.10, "psi", "PHONE"),
+        ],
+    )
+
+    conn = init_db(db_path)
+
+    rows = conn.execute(
+        "SELECT url, lcp_p75 FROM cwv_snapshots ORDER BY url"
+    ).fetchall()
+    assert rows == [
+        ("https://example.com/", 1800.0),
+        ("https://example.com/other", 3000.0),
+    ]
+    assert _index_is_unique(
+        conn, "cwv_snapshots", "idx_cwv_snapshots_site_url_captured_at"
+    )
+    conn.close()
+
+
+def test_init_db_is_idempotent_over_an_already_migrated_db(tmp_path):
+    db_path = tmp_path / "seo.db"
+    _legacy_db(db_path)
+
+    init_db(db_path).close()
+    conn = init_db(db_path)
+
+    columns = [
+        row[1] for row in conn.execute("PRAGMA table_info(cwv_snapshots)").fetchall()
+    ]
+    # A second migration must not re-add (or duplicate) the new columns.
+    assert columns.count("lh_performance") == 1
+    assert _index_is_unique(
+        conn, "cwv_snapshots", "idx_cwv_snapshots_site_url_captured_at"
+    )
+    conn.close()
+
+
+# ---------------------------------------------------------------------------
+# country_daily
+# ---------------------------------------------------------------------------
+
+
+def test_upsert_country_daily_same_key_twice_yields_one_updated_row(conn):
+    row_v1 = {
+        "site": SITE,
+        "date": "2026-07-20",
+        "country": "srb",
+        "clicks": 5,
+        "impressions": 50,
+        "ctr": 0.1,
+        "position": 12.0,
+    }
+    row_v2 = {**row_v1, "clicks": 7, "impressions": 70, "position": 11.0}
+
+    upsert_country_daily(conn, [row_v1])
+    upsert_country_daily(conn, [row_v2])
+
+    rows = conn.execute(
+        "SELECT clicks, impressions, ctr, position FROM country_daily"
+    ).fetchall()
+    assert rows == [(7, 70, 0.1, 11.0)]
+
+
+def test_upsert_country_daily_keeps_one_row_per_country(conn):
+    rows = [
+        {
+            "site": SITE,
+            "date": "2026-07-20",
+            "country": country,
+            "clicks": 1,
+            "impressions": 10,
+            "ctr": 0.1,
+            "position": 15.0,
+        }
+        for country in ("srb", "usa", "deu")
+    ]
+    upsert_country_daily(conn, rows)
+    upsert_country_daily(conn, rows)
+
+    count = conn.execute("SELECT COUNT(*) FROM country_daily").fetchone()[0]
+    assert count == 3
 
 
 def test_start_run_then_finish_run_records_one_run(conn):

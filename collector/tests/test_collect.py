@@ -66,7 +66,22 @@ def _sa(site: str, day: str) -> SearchAnalytics:
                 "position": 4.0,
             }
         ],
+        by_country=[
+            {
+                "site": site,
+                "date": day,
+                "country": "srb",
+                "clicks": 9,
+                "impressions": 90,
+                "ctr": 0.1,
+                "position": 5.0,
+            }
+        ],
     )
+
+
+# One SearchAnalytics row per dimension: totals + query + page + country.
+GSC_ROWS_PER_SITE = 4
 
 
 @pytest.fixture()
@@ -165,7 +180,10 @@ def test_mid_write_failure_isolates_and_leaves_partial_rows(tmp_path, conn):
             broken_page = dict(sa.by_page[0])
             del broken_page["page"]
             return SearchAnalytics(
-                totals=sa.totals, by_query=sa.by_query, by_page=[broken_page]
+                totals=sa.totals,
+                by_query=sa.by_query,
+                by_page=[broken_page],
+                by_country=sa.by_country,
             )
         return _sa(property, "2026-07-15")
 
@@ -324,12 +342,12 @@ def test_cwv_none_means_no_row_and_run_still_succeeds(tmp_path, conn):
     cwv_count = conn.execute("SELECT COUNT(*) FROM cwv_snapshots").fetchone()[0]
     assert cwv_count == 0
 
-    # rows count excludes cwv: 1 totals + 1 query + 1 page = 3
-    assert results[0]["rows"] == 3
+    # rows count excludes cwv: 1 totals + 1 query + 1 page + 1 country = 4
+    assert results[0]["rows"] == GSC_ROWS_PER_SITE
     run_row = conn.execute(
         "SELECT rows_written FROM collection_runs WHERE site=?", (SITE_A,)
     ).fetchone()
-    assert run_row[0] == 3
+    assert run_row[0] == GSC_ROWS_PER_SITE
 
 
 def test_cwv_present_writes_one_row_with_site(tmp_path, conn):
@@ -345,6 +363,10 @@ def test_cwv_present_writes_one_row_with_site(tmp_path, conn):
         cls_p75=0.02,
         source="crux",
         form_factor="PHONE",
+        lh_performance=0.0,
+        lh_accessibility=None,
+        lh_best_practices=99.0,
+        lh_seo=91.0,
     )
 
     def fetch_cwv_fn(url):
@@ -362,9 +384,135 @@ def test_cwv_present_writes_one_row_with_site(tmp_path, conn):
     )
 
     assert results[0]["status"] == "success"
-    assert results[0]["rows"] == 4  # 1 totals + 1 query + 1 page + 1 cwv
+    assert results[0]["rows"] == GSC_ROWS_PER_SITE + 1
 
     row = conn.execute(
-        "SELECT site, url, lcp_p75, source FROM cwv_snapshots"
+        "SELECT site, url, lcp_p75, source, "
+        "lh_performance, lh_accessibility, lh_best_practices, lh_seo "
+        "FROM cwv_snapshots"
     ).fetchone()
-    assert row == (SITE_A, "https://alexrad.dev/", 2000.0, "crux")
+    # A 0 Lighthouse score persists as 0, an unfetched category as NULL.
+    assert row == (
+        SITE_A,
+        "https://alexrad.dev/",
+        2000.0,
+        "crux",
+        0.0,
+        None,
+        99.0,
+        91.0,
+    )
+
+
+# ---------------------------------------------------------------------------
+# CWV error isolation: a CWV failure must not condemn the GSC data
+# ---------------------------------------------------------------------------
+
+
+def test_cwv_failure_leaves_the_run_successful_with_gsc_rows_counted(tmp_path, conn):
+    """The CWV fetch used to share the GSC try/except, so one PSI timeout
+    marked the whole site failed with rows=0 even though the GSC upserts had
+    already committed. Unconditional PSI (11d) makes that a routine event.
+    """
+    config = _config(
+        tmp_path,
+        sites=[Site(property=SITE_A, slug="site-a", display_name="A", brand_token="a")],
+    )
+
+    def fetch_analytics(service, property, start, end):
+        return _sa(property, "2026-07-15")
+
+    def fetch_cwv_fn(url):
+        raise RuntimeError("PSI timed out")
+
+    results = collect_once(
+        config,
+        mode="incremental",
+        conn=conn,
+        service=object(),
+        fetch_analytics=fetch_analytics,
+        fetch_cwv_fn=fetch_cwv_fn,
+        today=datetime.date(2026, 7, 24),
+    )
+
+    assert results[0]["status"] == "success"
+    assert results[0]["rows"] == GSC_ROWS_PER_SITE
+
+    # The CWV error is recorded, not discarded.
+    assert "PSI timed out" in results[0]["cwv_error"]
+
+    status, error, rows_written = conn.execute(
+        "SELECT status, error, rows_written FROM collection_runs WHERE site=?",
+        (SITE_A,),
+    ).fetchone()
+    assert status == "success"
+    assert rows_written == GSC_ROWS_PER_SITE
+    assert error is not None and "PSI timed out" in error
+
+    # The GSC data actually landed.
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) FROM totals_daily WHERE site=?", (SITE_A,)
+        ).fetchone()[0]
+        == 1
+    )
+    assert conn.execute("SELECT COUNT(*) FROM cwv_snapshots").fetchone()[0] == 0
+
+
+def test_a_gsc_failure_is_still_a_failed_run(tmp_path, conn):
+    """The isolation fix must not weaken the real failure path: a GSC error
+    still fails the site, and ``cwv_error`` stays None.
+    """
+    config = _config(
+        tmp_path,
+        sites=[Site(property=SITE_A, slug="site-a", display_name="A", brand_token="a")],
+    )
+
+    def fetch_analytics(service, property, start, end):
+        raise RuntimeError("boom: GSC API error")
+
+    results = collect_once(
+        config,
+        mode="incremental",
+        conn=conn,
+        service=object(),
+        fetch_analytics=fetch_analytics,
+        fetch_cwv_fn=lambda url: None,
+        today=datetime.date(2026, 7, 24),
+    )
+
+    assert results[0]["status"] == "failed"
+    assert results[0]["rows"] == 0
+    assert results[0]["cwv_error"] is None
+    assert "boom" in results[0]["error"]
+
+
+# ---------------------------------------------------------------------------
+# Country dimension
+# ---------------------------------------------------------------------------
+
+
+def test_country_rows_are_upserted_and_re_running_does_not_duplicate(tmp_path, conn):
+    config = _config(
+        tmp_path,
+        sites=[Site(property=SITE_A, slug="site-a", display_name="A", brand_token="a")],
+    )
+
+    def fetch_analytics(service, property, start, end):
+        return _sa(property, "2026-07-15")
+
+    kwargs = dict(
+        mode="incremental",
+        conn=conn,
+        service=object(),
+        fetch_analytics=fetch_analytics,
+        fetch_cwv_fn=lambda url: None,
+        today=datetime.date(2026, 7, 24),
+    )
+    collect_once(config, **kwargs)
+    collect_once(config, **kwargs)
+
+    rows = conn.execute(
+        "SELECT site, date, country, clicks, impressions FROM country_daily"
+    ).fetchall()
+    assert rows == [(SITE_A, "2026-07-15", "srb", 9, 90)]

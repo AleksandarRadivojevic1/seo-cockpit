@@ -16,18 +16,23 @@ def _load_fixture():
         return json.load(f)
 
 
+EMPTY_RESPONSE = {"rows": []}
+
+
 def _mock_service(response_by_dimensions):
     """Build a mock searchconsole service.
 
     ``response_by_dimensions`` maps a tuple(dimensions) -> response dict (or
     a list of responses to be returned on successive calls, for pagination).
+    Any dimension set not named defaults to an empty response, so a test
+    only has to spell out the dimensions it cares about.
     """
     service = MagicMock()
     call_state = {}
 
     def query(siteUrl, body):
         dims = tuple(body["dimensions"])
-        entry = response_by_dimensions[dims]
+        entry = response_by_dimensions.get(dims, EMPTY_RESPONSE)
         request = MagicMock()
         if isinstance(entry, list):
             idx = call_state.get(dims, 0)
@@ -98,6 +103,88 @@ def test_fetch_search_analytics_parses_fixture_into_normalized_rows():
         "position": 6.4,
     } in result.by_page
     assert len(result.by_page) == 3
+
+
+def test_fetch_search_analytics_collects_the_country_dimension():
+    """GSC returns country as a lowercase ISO-3166-1 alpha-3 code (``srb``,
+    ``usa``), stored verbatim; mapping to the numeric codes a TopoJSON world
+    atlas keys on is the dashboard's problem, not the collector's.
+    """
+    service = _mock_service(
+        {
+            ("date", "country"): {
+                "rows": [
+                    {
+                        "keys": ["2026-07-01", "srb"],
+                        "clicks": 110,
+                        "impressions": 3000,
+                        "ctr": 0.0366,
+                        "position": 13.9,
+                    },
+                    {
+                        "keys": ["2026-07-01", "usa"],
+                        "clicks": 10,
+                        "impressions": 400,
+                        "ctr": 0.025,
+                        "position": 21.0,
+                    },
+                ]
+            }
+        }
+    )
+
+    result = fetch_search_analytics(service, PROPERTY, "2026-07-01", "2026-07-01")
+
+    assert result.by_country == [
+        {
+            "site": PROPERTY,
+            "date": "2026-07-01",
+            "country": "srb",
+            "clicks": 110,
+            "impressions": 3000,
+            "ctr": 0.0366,
+            "position": 13.9,
+        },
+        {
+            "site": PROPERTY,
+            "date": "2026-07-01",
+            "country": "usa",
+            "clicks": 10,
+            "impressions": 400,
+            "ctr": 0.025,
+            "position": 21.0,
+        },
+    ]
+
+    dimension_sets = [
+        tuple(kall.kwargs["body"]["dimensions"])
+        for kall in service.searchanalytics.return_value.query.call_args_list
+    ]
+    assert ("date", "country") in dimension_sets
+
+
+def test_fetch_search_analytics_does_not_cap_countries_per_day():
+    """``top_n`` caps the unbounded query/page dimensions. Country
+    cardinality is bounded (~250) and the long tail is the whole point of a
+    choropleth, so capping it would silently erase most of the map.
+    """
+    rows = [
+        {
+            "keys": ["2026-07-01", f"c{i:02d}"],
+            "clicks": i,
+            "impressions": i,
+            "ctr": 0.1,
+            "position": 5.0,
+        }
+        for i in range(10)
+    ]
+    service = _mock_service({("date", "country"): {"rows": rows}})
+
+    result = fetch_search_analytics(
+        service, PROPERTY, "2026-07-01", "2026-07-01", top_n=3
+    )
+
+    assert len(result.by_country) == 10
 
 
 def test_fetch_search_analytics_passes_site_url_as_named_argument():
@@ -217,16 +304,18 @@ def test_fetch_search_analytics_retries_on_429_then_succeeds():
             }
         ]
     }
-    empty_response = {"rows": []}
 
     service = MagicMock()
     request = MagicMock()
     request.execute.side_effect = [http_error, success_response]
-    service.searchanalytics.return_value.query.side_effect = [
-        request,
-        MagicMock(execute=MagicMock(return_value=empty_response)),
-        MagicMock(execute=MagicMock(return_value=empty_response)),
-    ]
+    # First call is the retried totals query; every later dimension set (as
+    # many as fetch_search_analytics makes) returns empty.
+    def query(siteUrl, body):
+        if tuple(body["dimensions"]) == ("date",):
+            return request
+        return MagicMock(execute=MagicMock(return_value=EMPTY_RESPONSE))
+
+    service.searchanalytics.return_value.query.side_effect = query
 
     with patch("seocockpit.gsc.time.sleep") as mock_sleep:
         result = fetch_search_analytics(

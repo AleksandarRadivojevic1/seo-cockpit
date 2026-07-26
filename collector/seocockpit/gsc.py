@@ -39,6 +39,7 @@ class SearchAnalytics:
     totals: list[dict]
     by_query: list[dict]
     by_page: list[dict]
+    by_country: list[dict]
 
 
 def build_service(service_account_path: str):
@@ -135,10 +136,14 @@ def fetch_search_analytics(
 ) -> SearchAnalytics:
     """Fetch and normalize GSC Search Analytics data for ``property``.
 
-    Makes three ``searchanalytics().query()`` calls (totals, by-query,
-    by-page), paginating each until exhausted, and returns DB-ready rows.
-    ``by_query`` and ``by_page`` are capped to the top ``top_n`` rows per
-    day by impressions; ``.totals`` (one row per day) is not capped.
+    Makes four ``searchanalytics().query()`` calls (totals, by-query,
+    by-page, by-country), paginating each until exhausted, and returns
+    DB-ready rows. ``by_query`` and ``by_page`` are capped to the top
+    ``top_n`` rows per day by impressions; ``.totals`` (one row per day)
+    and ``.by_country`` (bounded cardinality, ~250 codes) are not capped.
+
+    GSC reports country as a lowercase ISO-3166-1 alpha-3 code (``srb``,
+    ``usa``), kept verbatim in the ``country`` field.
 
     Args:
         service: An authenticated Search Console API client (as built by
@@ -174,4 +179,11 @@ def fetch_search_analytics(
         _normalize_rows(page_raw, property, extra_dims=("page",)), top_n
     )
 
-    return SearchAnalytics(totals=totals, by_query=by_query, by_page=by_page)
+    country_raw = _query_all_rows(
+        service, property, {**body_base, "dimensions": ["date", "country"]}
+    )
+    by_country = _normalize_rows(country_raw, property, extra_dims=("country",))
+
+    return SearchAnalytics(
+        totals=totals, by_query=by_query, by_page=by_page, by_country=by_country
+    )
