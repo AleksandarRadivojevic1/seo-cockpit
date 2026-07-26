@@ -33,6 +33,12 @@ services:
     container_name: seo-cockpit-collector
     restart: unless-stopped
     working_dir: /app
+    # Run as the HOST user that owns data/ and secrets/, overriding the
+    # image's baked-in uid. The alternative — chowning data/ to 10001 — would
+    # leave the database owned by a uid with no host account, so backing it up
+    # or inspecting it would need sudo. Defaults suit a single-user Pi where
+    # the first account is 1000; override in ~/server/.env if yours differs.
+    user: "${SEO_COCKPIT_UID:-1000}:${SEO_COCKPIT_GID:-1000}"
     environment:
       # PSI + CrUX. The service account (mounted below) covers Search Console;
       # this key is separate and must have BOTH the PageSpeed Insights API and
@@ -60,6 +66,10 @@ services:
     image: seo-cockpit-dashboard:latest
     container_name: seo-cockpit-dashboard
     restart: unless-stopped
+    # Same host uid as the collector. This one only ever READS the database,
+    # but matching keeps the two consistent and avoids surprises if Next ever
+    # wants to write a cache directory.
+    user: "${SEO_COCKPIT_UID:-1000}:${SEO_COCKPIT_GID:-1000}"
     depends_on:
       - seo-cockpit-collector
     environment:
