@@ -81,4 +81,44 @@ export const SR = {
 
   pages: "Najposećenije stranice",
   pagesEmpty: "Nema podataka o pojedinačnim stranicama za ovaj period.",
+
+  demand: "Tražnja koju ne pokrivate",
+  demandLead: (n: number, noun: string) =>
+    `Pronađeno je ${n} ${noun} koje ljudi pretražuju, a za koje se sajt još ne pojavljuje.`,
+  demandEmpty: "Pretraga tražnje još nije pokrenuta za ovaj sajt.",
+  demandIntent: {
+    commercial: "Kupovna namera",
+    local: "Lokalna pretraga",
+    question: "Pitanja",
+    other: "Ostalo",
+  } as const,
+
+  competitors: "Konkurencija",
+  competitorsLead:
+    "Sajtovi koji se pojavljuju za pretrage iz prethodne sekcije, poređani po broju pretraga u kojima se javljaju.",
+  /** Never checked. */
+  competitorsEmpty: "Provera konkurencije još nije pokrenuta za ove pojmove.",
+  /** Checked, and Google returned nothing — a different claim about the world. */
+  competitorsEmptySerp: "Provera je pokrenuta, ali Google nije vratio rezultate.",
+  colDomain: "Sajt",
+  colAppearances: "Pretraga",
+  colBest: "Najbolja pozicija",
+
+  cwv: "Brzina sajta",
+  cwvEmpty: "Brzina sajta još nije merena.",
+  cwvNotMeasured: "nije mereno",
+  /**
+   * All four members of `MetricVerdict`, including "not-measured". A missing
+   * key would render `undefined` into a document the client keeps.
+   */
+  cwvVerdict: {
+    good: "dobro",
+    "needs-work": "može bolje",
+    poor: "loše",
+    "not-measured": "nije mereno",
+  } as const,
+  cwvLab:
+    "Mereno u laboratorijskim uslovima, jednim PageSpeed Insights testom — sajt nema dovoljno posetilaca za podatke iz Chrome UX Report-a, a INP nema laboratorijski ekvivalent.",
+  cwvField:
+    "Mereno na stvarnim posetama (75. percentil), na osnovu podataka iz Chrome UX Report-a.",
 } as const;
