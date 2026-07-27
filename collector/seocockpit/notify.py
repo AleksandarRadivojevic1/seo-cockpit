@@ -130,14 +130,18 @@ def summarize_failures(results: list[dict]) -> tuple[str, str, int] | None:
     if not failed and not degraded:
         return None
 
-    lines: list[str] = []
+    # Formatting note from the real ntfy client: it COLLAPSES leading
+    # whitespace, so column alignment does not survive and indented
+    # continuation lines run into their heading. Blank-line-separated blocks
+    # with a label on each line render correctly everywhere.
+    blocks: list[str] = []
     for r in failed:
-        lines.append(f"FAILED  {r['site']}\n        {r.get('error') or 'no error recorded'}")
+        blocks.append(f"FAILED: {r['site']}\n{r.get('error') or 'no error recorded'}")
     for r in degraded:
-        lines.append(f"CWV     {r['site']}\n        {r['cwv_error']}")
+        blocks.append(f"SEARCH DATA OK, CWV FAILED: {r['site']}\n{r['cwv_error']}")
 
     succeeded = sum(1 for r in results if r.get("status") == "success")
-    lines.append(f"\n{succeeded}/{len(results)} sites collected search data.")
+    blocks.append(f"{succeeded}/{len(results)} sites collected search data.")
 
     if failed:
         title = f"seo-cockpit: {len(failed)} site(s) failed"
@@ -146,7 +150,7 @@ def summarize_failures(results: list[dict]) -> tuple[str, str, int] | None:
         title = f"seo-cockpit: CWV degraded on {len(degraded)} site(s)"
         priority = PRIORITY_DEFAULT
 
-    return title, "\n".join(lines), priority
+    return title, "\n\n".join(blocks), priority
 
 
 def alert_run_result(
@@ -230,14 +234,17 @@ def build_weekly_digest(
             conn, site.property, prior_start.isoformat(), prior_end.isoformat()
         )
 
+        # No indentation and no column padding anywhere: the ntfy client
+        # collapses leading whitespace, so alignment silently disappears and
+        # indented lines run into their heading. Blank lines separate sites.
         if days == 0:
-            lines.append(f"{site.display_name}\n  nothing collected this week")
+            lines.append(f"{site.display_name}\nnothing collected this week")
             continue
 
         lines.append(
             f"{site.display_name}\n"
-            f"  impressions {_delta_phrase(impressions, p_impressions, p_days)}\n"
-            f"  clicks      {_delta_phrase(clicks, p_clicks, p_days)}"
+            f"impressions {_delta_phrase(impressions, p_impressions, p_days)}\n"
+            f"clicks {_delta_phrase(clicks, p_clicks, p_days)}"
         )
 
     failures = conn.execute(
@@ -254,7 +261,7 @@ def build_weekly_digest(
             lines.append(f"{count} failed run(s): {site_property}")
 
     title = f"seo-cockpit weekly: {start.isoformat()} to {end.isoformat()}"
-    return title, "\n".join(lines)
+    return title, "\n\n".join(lines)
 
 
 def send_weekly_digest(
