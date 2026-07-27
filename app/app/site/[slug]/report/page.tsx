@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 
 import PrintButton from "../../../../components/report/PrintButton";
 import ReportChart from "../../../../components/report/ReportChart";
+import ReportTable from "../../../../components/report/ReportTable";
 import { formatISODateUTC } from "../../../../lib/analysis/windows";
 import { siteConfigBySlug } from "../../../../lib/db";
 import { buildReportData } from "../../../../lib/report/data";
@@ -11,10 +12,26 @@ import {
   formatDateSr,
   formatDecimalSr,
   formatIntSr,
+  formatPercentSr,
   formatPeriodSr,
   pluralSr,
 } from "../../../../lib/report/format";
 import { SR } from "../../../../lib/report/sr";
+
+/** A share of the total, or an em dash when the total is zero. */
+function share(value: number, total: number): string {
+  return total > 0 ? formatPercentSr(value / total) : "—";
+}
+
+/** Full URLs are unreadable in a table column; the path is what identifies a page. */
+function pathOf(url: string): string {
+  try {
+    const { pathname, search } = new URL(url);
+    return `${pathname}${search}` || "/";
+  } catch {
+    return url;
+  }
+}
 
 export async function generateMetadata({
   params,
@@ -140,6 +157,105 @@ export default async function ReportPage({
           <ReportChart points={d.trend} />
         ) : (
           <p className="text-sm text-neutral-500">{SR.trendEmpty}</p>
+        )}
+      </section>
+
+      <section className="mb-8 break-inside-avoid">
+        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400">
+          {SR.opportunities}
+        </h2>
+        {d.opportunities.length === 0 ? (
+          <p className="text-sm text-neutral-500">{SR.opportunitiesEmpty}</p>
+        ) : (
+          <>
+            <p className="mb-3 text-sm text-neutral-600">{SR.opportunitiesLead}</p>
+            <ReportTable
+              head={[SR.colQuery, SR.colPosition, SR.colImpressions, SR.colCtr]}
+              numeric={[false, true, true, true]}
+              rows={d.opportunities.map((o) => [
+                o.query,
+                formatDecimalSr(o.position),
+                formatIntSr(o.impressions),
+                formatPercentSr(o.ctr),
+              ])}
+            />
+          </>
+        )}
+      </section>
+
+      <section className="mb-8 break-inside-avoid">
+        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400">
+          {SR.movement}
+        </h2>
+        {d.rising.length === 0 && d.declining.length === 0 ? (
+          <p className="text-sm text-neutral-500">{SR.movementEmpty}</p>
+        ) : (
+          <dl className="text-sm">
+            <div className="mb-1.5">
+              <dt className="inline font-medium">{SR.movementRising}: </dt>
+              <dd className="inline text-neutral-600">
+                {d.rising.length === 0
+                  ? SR.movementNone
+                  : d.rising.map((e) => e.query).join(", ")}
+              </dd>
+            </div>
+            <div>
+              <dt className="inline font-medium">{SR.movementDeclining}: </dt>
+              <dd className="inline text-neutral-600">
+                {d.declining.length === 0
+                  ? SR.movementNone
+                  : d.declining.map((e) => e.query).join(", ")}
+              </dd>
+            </div>
+          </dl>
+        )}
+      </section>
+
+      <section className="mb-8 break-inside-avoid">
+        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400">
+          {SR.sources}
+        </h2>
+        <ReportTable
+          head={["", SR.colImpressions, ""]}
+          numeric={[false, true, true]}
+          rows={[
+            [
+              SR.sourceBrand,
+              formatIntSr(d.breakdown.brandImpressions),
+              share(d.breakdown.brandImpressions, d.breakdown.totalImpressions),
+            ],
+            [
+              SR.sourceNonBrand,
+              formatIntSr(d.breakdown.nonBrandImpressions),
+              share(d.breakdown.nonBrandImpressions, d.breakdown.totalImpressions),
+            ],
+            [
+              SR.sourceAnonymous,
+              formatIntSr(d.breakdown.anonymizedImpressions),
+              share(d.breakdown.anonymizedImpressions, d.breakdown.totalImpressions),
+            ],
+          ]}
+        />
+        <p className="mt-3 text-xs italic text-neutral-500">{SR.sourcesNote}</p>
+      </section>
+
+      <section className="mb-8 break-inside-avoid">
+        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400">
+          {SR.pages}
+        </h2>
+        {d.topPages.length === 0 ? (
+          <p className="text-sm text-neutral-500">{SR.pagesEmpty}</p>
+        ) : (
+          <ReportTable
+            head={[SR.colPage, SR.colClicks, SR.colImpressions, SR.colPosition]}
+            numeric={[false, true, true, true]}
+            rows={d.topPages.map((p) => [
+              pathOf(p.page),
+              formatIntSr(p.clicks),
+              formatIntSr(p.impressions),
+              formatDecimalSr(p.position),
+            ])}
+          />
         )}
       </section>
 

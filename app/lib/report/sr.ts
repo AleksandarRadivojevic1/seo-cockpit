@@ -48,4 +48,37 @@ export const SR = {
 
   trend: "Prikazi kroz vreme",
   trendEmpty: "Nema dovoljno izmerenih dana za prikaz grafikona.",
+
+  opportunities: "Prilike",
+  opportunitiesLead:
+    "Upiti za koje se sajt već pojavljuje, ali ispod prve strane — poređani po preostalom potencijalu.",
+  opportunitiesEmpty:
+    "Nijedan upit u ovom periodu nema neiskorišćen potencijal — sve što pratimo je već na prvoj strani ili ima premalo prikaza za procenu.",
+  colQuery: "Upit",
+  colPosition: "Pozicija",
+  colImpressions: "Prikazi",
+  colClicks: "Klikovi",
+  colCtr: "CTR",
+  colPage: "Stranica",
+
+  movement: "Kretanje",
+  movementRising: "U porastu",
+  movementDeclining: "U padu",
+  movementNone: "nijedan",
+  movementEmpty: "Nijedan upit se nije pomerio dovoljno da bi bio prikazan.",
+
+  sources: "Odakle dolaze prikazi",
+  sourceBrand: "Upiti sa imenom radnje",
+  sourceNonBrand: "Ostali upiti",
+  sourceAnonymous: "Google ne otkriva upit",
+  /**
+   * Mandatory wherever the brand split appears. Three quarters of
+   * optika-cajs's impressions carry no query, so presenting brand vs
+   * non-brand as the whole picture would overstate what is known.
+   */
+  sourcesNote:
+    "Google ne prikazuje pojam pretrage za retke upite, pa se podela na upite sa imenom radnje i ostale upite odnosi samo na prikazani deo.",
+
+  pages: "Najposećenije stranice",
+  pagesEmpty: "Nema podataka o pojedinačnim stranicama za ovaj period.",
 } as const;
