@@ -1,26 +1,32 @@
 import { formatMetricValue, metricVerdictFor } from "./cwv-format";
 import type { MetricKey } from "./cwv-format";
-import type { BrandBreakdown, PageTotal } from "./analysis/breakdown";
 import type { SignalEntry } from "./analysis/signals";
-import type { CwvRow } from "./db";
-import type { DataState } from "./portfolio";
+import type { ReportData } from "./report/data";
 
-export interface ProposalInput {
-  siteName: string;
-  property: string;
-  window: { start: string; end: string };
-  dataState: DataState;
-  clicks: { recent: number; prior: number; deltaPct: number | null };
-  impressions: number;
-  avgPosition: number | null;
-  breakdown: BrandBreakdown;
-  /** Ranked by opportunity score, highest first. */
-  opportunities: SignalEntry[];
-  rising: SignalEntry[];
-  declining: SignalEntry[];
-  topPages: PageTotal[];
-  cwv: CwvRow | null;
-}
+/**
+ * The subset of the shared report facts this serializer reads.
+ *
+ * Picked from `ReportData` rather than redeclared, so the English proposal
+ * and the Serbian client report cannot drift apart in what they mean by
+ * "impressions" or "opportunities". `opportunities` is ranked by opportunity
+ * score, highest first.
+ */
+export type ProposalInput = Pick<
+  ReportData,
+  | "siteName"
+  | "property"
+  | "window"
+  | "dataState"
+  | "clicks"
+  | "impressions"
+  | "avgPosition"
+  | "breakdown"
+  | "opportunities"
+  | "rising"
+  | "declining"
+  | "topPages"
+  | "cwv"
+>;
 
 /** Rows included per section — a findings page, not a data dump. */
 const MAX_ROWS = 10;

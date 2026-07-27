@@ -3,29 +3,19 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import CopyMarkdownButton from "../../../../components/CopyMarkdownButton";
-import { buildBrandBreakdown, topPages } from "../../../../lib/analysis/breakdown";
-import { deriveSignals } from "../../../../lib/analysis/signals";
-import { formatISODateUTC, recentVsPrior, windowBounds } from "../../../../lib/analysis/windows";
-import {
-  latestCwv,
-  pageRowsInRange,
-  siteConfigBySlug,
-  totalsInRange,
-} from "../../../../lib/db";
-import { buildSiteSummary } from "../../../../lib/portfolio";
+import { formatISODateUTC } from "../../../../lib/analysis/windows";
+import { siteConfigBySlug } from "../../../../lib/db";
+import { buildReportData } from "../../../../lib/report/data";
 import { toProposalMarkdown } from "../../../../lib/proposalMarkdown";
-import type { ProposalInput } from "../../../../lib/proposalMarkdown";
-
-/** Opportunities carried into a client-facing document. */
-const PROPOSAL_LIMIT = 10;
 
 /**
- * Print-optimized findings page for one site.
+ * Internal English findings page for one site.
  *
  * The page and the "copy as Markdown" button render from the SAME
- * serialized input, so the document a client receives can never disagree
- * with what was on screen. The markdown is the source of truth; this page
- * is a styled view of it.
+ * serialized string, so what is copied can never disagree with what was on
+ * screen. That string is built from `buildReportData`, which the Serbian
+ * client report renders from too — so neither document can quote a number
+ * the other lacks.
  */
 export default async function ProposalPage({
   params,
@@ -40,44 +30,7 @@ export default async function ProposalPage({
     notFound();
   }
 
-  const asOf = formatISODateUTC(new Date());
-  const summary = buildSiteSummary(config, asOf);
-  const { recentStart, recentEnd } = windowBounds(asOf);
-  const rows = totalsInRange(config.property, recentStart, recentEnd);
-  const { recent, prior } = recentVsPrior(config.property, asOf);
-  const signals = deriveSignals(recent, prior, config.brandToken);
-
-  const totalImpressions = rows.reduce((sum, row) => sum + row.impressions, 0);
-  const weightedPosition = rows.reduce((sum, row) => sum + row.position * row.impressions, 0);
-
-  // Same rule as the overview's opportunity list: non-brand queries with
-  // upside remaining. A client document's most important section must not
-  // list the client's own name back at them as an "opportunity".
-  const opportunities = signals.nonBrandQueries
-    .filter((entry) => entry.score > 0)
-    .slice(0, PROPOSAL_LIMIT);
-
-  const input: ProposalInput = {
-    siteName: config.displayName,
-    property: config.property,
-    window: { start: recentStart, end: recentEnd },
-    dataState: summary.dataState,
-    clicks: summary.clicks,
-    impressions: totalImpressions,
-    avgPosition: totalImpressions > 0 ? weightedPosition / totalImpressions : null,
-    breakdown: buildBrandBreakdown(
-      signals.brandSplit.brand.impressions,
-      signals.brandSplit.nonBrand.impressions,
-      totalImpressions
-    ),
-    opportunities,
-    rising: signals.rising,
-    declining: signals.declining,
-    topPages: topPages(pageRowsInRange(config.property, recentStart, recentEnd), 10),
-    cwv: latestCwv(config.property),
-  };
-
-  const markdown = toProposalMarkdown(input);
+  const markdown = toProposalMarkdown(buildReportData(config, formatISODateUTC(new Date())));
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
