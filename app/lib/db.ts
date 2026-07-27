@@ -252,6 +252,81 @@ export function demandKeywords(site: string, db: Database.Database = getDb()): D
     .all(site);
 }
 
+export interface SerpResultRow {
+  position: number;
+  domain: string;
+  url: string;
+  title: string | null;
+}
+
+export interface SerpCheckRow {
+  keyword: string;
+  checkedAt: string;
+  location: string | null;
+  /**
+   * How many organic positions the collector examined. Load-bearing:
+   * `ourPosition === null` means "absent from the top `depthChecked`", which
+   * is a completely different claim from "not ranking anywhere".
+   */
+  depthChecked: number;
+  localPack: number | null;
+  adsTop: number | null;
+  adsBottom: number | null;
+  ourPosition: number | null;
+  results: SerpResultRow[];
+}
+
+/**
+ * The most recent SERP check per keyword for a site, with its results.
+ *
+ * Checks accumulate rather than overwrite (`checked_at` is in the primary
+ * key), so this deliberately reduces to the latest snapshot per keyword —
+ * history exists in the table but nothing reads it yet.
+ *
+ * Returns [] when the tables do not exist, which is the state of any
+ * database that predates Task 2.5.
+ */
+export function serpChecks(site: string, db: Database.Database = getDb()): SerpCheckRow[] {
+  const exists = db
+    .prepare<[], { n: number }>(
+      "SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name='serp_checks'"
+    )
+    .get();
+  if (!exists || exists.n === 0) return [];
+
+  const checks = db
+    .prepare<[string], Omit<SerpCheckRow, "results">>(
+      `SELECT keyword,
+              checked_at    AS checkedAt,
+              location,
+              depth_checked AS depthChecked,
+              local_pack    AS localPack,
+              ads_top       AS adsTop,
+              ads_bottom    AS adsBottom,
+              our_position  AS ourPosition
+       FROM serp_checks c
+       WHERE site = ?
+         AND checked_at = (
+           SELECT MAX(checked_at) FROM serp_checks
+           WHERE site = c.site AND keyword = c.keyword
+         )
+       ORDER BY keyword`
+    )
+    .all(site);
+
+  const resultsFor = db.prepare<[string, string, string], SerpResultRow>(
+    `SELECT position, domain, url, title
+     FROM serp_results
+     WHERE site = ? AND keyword = ? AND checked_at = ?
+     ORDER BY position`
+  );
+
+  return checks.map((check) => ({
+    ...check,
+    results: resultsFor.all(site, check.keyword, check.checkedAt),
+  }));
+}
+
 export function listSiteConfigs(db: Database.Database = getDb()): SiteConfig[] {
   return db
     .prepare<[], SiteConfig>(

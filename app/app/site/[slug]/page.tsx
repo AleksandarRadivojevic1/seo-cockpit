@@ -6,6 +6,7 @@ import BrandRing from "../../../components/BrandRing";
 import CountryMap from "../../../components/CountryMap";
 import CwvPanel from "../../../components/CwvPanel";
 import DemandGaps from "../../../components/DemandGaps";
+import SerpCompetitors from "../../../components/SerpCompetitors";
 import EmptyState from "../../../components/EmptyState";
 // LighthouseRadar is kept alongside this: the two are interchangeable in the
 // panel below, so switching back is a one-line change rather than an undo.
@@ -19,6 +20,7 @@ import { Badge } from "../../../components/ui/badge";
 import { buildBrandBreakdown, topPages } from "../../../lib/analysis/breakdown";
 import { buildCountryBreakdown } from "../../../lib/analysis/geography";
 import { buildDemandBreakdown } from "../../../lib/analysis/demand";
+import { ownDomainFor } from "../../../lib/analysis/serp";
 import { deriveSignals } from "../../../lib/analysis/signals";
 import { addDaysUTC, formatISODateUTC, recentVsPrior, windowBounds } from "../../../lib/analysis/windows";
 import {
@@ -27,6 +29,7 @@ import {
   latestCwv,
   pageRowsInRange,
   queryRowsInRange,
+  serpChecks,
   siteConfigBySlug,
   totalsInRange,
 } from "../../../lib/db";
@@ -126,6 +129,7 @@ export default async function SitePage({
     (r) => r.query
   );
   const demand = buildDemandBreakdown(demandKeywords(config.property), everRanked);
+  const serp = serpChecks(config.property);
 
   const countries = buildCountryBreakdown(
     countryRowsInRange(config.property, recentStart, recentEnd)
@@ -281,6 +285,17 @@ export default async function SitePage({
           Searches with real demand that this site does not appear for at all.
         </p>
         <DemandGaps breakdown={demand} />
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
+        <h2 className="pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          Who ranks for what you&apos;re missing
+        </h2>
+        <p className="pb-3 text-xs text-muted-foreground/70">
+          Live Google results for a sample of the gaps above, so you can see who would have to be
+          displaced.
+        </p>
+        <SerpCompetitors checks={serp} ownDomain={ownDomainFor(config.property)} />
       </section>
 
       <section className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
