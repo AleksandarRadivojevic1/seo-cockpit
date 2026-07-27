@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   SR_LOCALE,
+  formatCwvValueSr,
   formatDateSr,
   formatDecimalSr,
   formatIntSr,
@@ -72,6 +73,33 @@ describe("Serbian formatting", () => {
       formatPeriodSr("2026-01-15", "2026-02-03"),
     ].join(" ");
     expect(all).not.toMatch(CYRILLIC);
+  });
+
+  it("formats Core Web Vitals values with a decimal comma", () => {
+    // The dashboard's formatMetricValue uses toFixed(3) and emits `0.000`.
+    // A decimal point in the client's PDF was found by proofreading the
+    // printed document, so it gets a test here.
+    expect(formatCwvValueSr(0, "cls")).toBe("0,000");
+    expect(formatCwvValueSr(0.083, "cls")).toBe("0,083");
+    expect(formatCwvValueSr(3751, "lcp")).not.toContain(".000");
+    expect(formatCwvValueSr(3751, "lcp")).toContain("ms");
+    expect(formatCwvValueSr(212.6, "inp")).toBe("213 ms");
+  });
+
+  it("groups milliseconds the Serbian way and keeps the fraction comma-separated", () => {
+    // In Serbian the dot is the THOUSANDS separator, so `4.991 ms` is right
+    // and `4,991 ms` would read as a fraction. The two separators are
+    // swapped relative to English, which is why only the fractional part
+    // may carry a comma.
+    expect(formatCwvValueSr(4991, "lcp")).toBe("4.991 ms");
+    expect(formatCwvValueSr(0.083, "cls")).toBe("0,083");
+    for (const s of [
+      formatCwvValueSr(0.083, "cls"),
+      formatCwvValueSr(4991, "lcp"),
+      formatCwvValueSr(212, "inp"),
+    ]) {
+      expect(s).not.toMatch(CYRILLIC);
+    }
   });
 
   it("parses ISO dates as UTC, not local time", () => {

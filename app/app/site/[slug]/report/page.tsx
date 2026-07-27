@@ -6,10 +6,11 @@ import PrintButton from "../../../../components/report/PrintButton";
 import ReportChart from "../../../../components/report/ReportChart";
 import ReportTable from "../../../../components/report/ReportTable";
 import { formatISODateUTC } from "../../../../lib/analysis/windows";
-import { formatMetricValue, metricVerdict } from "../../../../lib/cwv-format";
+import { metricVerdict } from "../../../../lib/cwv-format";
 import { siteConfigBySlug } from "../../../../lib/db";
 import { buildReportData } from "../../../../lib/report/data";
 import {
+  formatCwvValueSr,
   formatDateSr,
   formatDecimalSr,
   formatIntSr,
@@ -143,9 +144,27 @@ export default async function ReportPage({
             <div className="mt-1 text-xs text-neutral-500">{SR.avgPosition}</div>
           </div>
         </div>
-        {!d.hasPriorWindow && d.measuredStart && (
+        {/* Three shapes, three sentences, no silence: no prior window at all,
+            a prior window with no clicks to divide by, and a real comparison.
+            Dropping any of them would leave the client guessing which one
+            they are looking at. */}
+        {!d.hasPriorWindow ? (
+          d.measuredStart && (
+            <p className="mt-3 text-xs italic text-neutral-500">
+              {SR.noPrior(formatDateSr(d.measuredStart))}
+            </p>
+          )
+        ) : (
           <p className="mt-3 text-xs italic text-neutral-500">
-            {SR.noPrior(formatDateSr(d.measuredStart))}
+            {SR.colClicks}:{" "}
+            {d.clicks.deltaPct === null
+              ? SR.noPriorClicks
+              : d.clicks.deltaPct === 0
+                ? SR.noChange
+                : SR.vsPrior(
+                    formatPercentSr(Math.abs(d.clicks.deltaPct) / 100),
+                    d.clicks.deltaPct > 0
+                  )}
           </p>
         )}
       </section>
@@ -324,7 +343,7 @@ export default async function ReportPage({
                       SR.cwvNotMeasured
                     ) : (
                       <>
-                        {formatMetricValue(value, key)}{" "}
+                        {formatCwvValueSr(value, key)}{" "}
                         <span className="text-neutral-400">
                           ({SR.cwvVerdict[metricVerdict(value, key)]})
                         </span>

@@ -40,6 +40,12 @@ export const SR = {
   vsPrior: (pct: string, up: boolean) =>
     `${up ? "više" : "manje"} za ${pct} u odnosu na prethodni period`,
   noChange: "bez promene u odnosu na prethodni period",
+  /**
+   * A prior window exists but recorded no clicks, so a percentage change has
+   * no baseline. Stated rather than omitted — an absent comparison is never
+   * silently dropped, the same rule that governs `noPrior`.
+   */
+  noPriorClicks: "prethodni period nije zabeležio klikove, pa poređenje nije moguće",
 
   notCollected:
     "Za ovaj sajt još nisu prikupljeni podaci o pretrazi, pa su sekcije ispod prazne. To je praznina u prikupljanju, a ne rezultat u pretrazi.",

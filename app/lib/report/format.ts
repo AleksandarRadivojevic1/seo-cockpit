@@ -1,3 +1,5 @@
+import type { MetricKey } from "../cwv-format";
+
 /**
  * Serbian **Latin** locale.
  *
@@ -44,6 +46,23 @@ export function formatDecimalSr(n: number, digits = 1): string {
 /** Takes a fraction (`0.753`), emits `75,3%`. */
 export function formatPercentSr(fraction: number): string {
   return PERCENT_1.format(fraction);
+}
+
+/**
+ * A Core Web Vitals value in Serbian.
+ *
+ * The dashboard's `formatMetricValue` cannot be reused here: it builds CLS
+ * with `toFixed(3)`, which is locale-independent and emits `0.000` with a
+ * decimal **point**. One stray point in an otherwise Serbian document is
+ * exactly the kind of tell that makes it read as machine-translated — caught
+ * by proofreading the printed PDF, not by any unit test that existed then.
+ *
+ * `null` is not accepted: an unmeasured metric is a sentence ("nije mereno"),
+ * not a formatted number, and the caller must have already said so.
+ */
+export function formatCwvValueSr(value: number, metric: MetricKey): string {
+  if (metric === "cls") return formatDecimalSr(value, 3);
+  return `${formatIntSr(Math.round(value))} ms`;
 }
 
 /**

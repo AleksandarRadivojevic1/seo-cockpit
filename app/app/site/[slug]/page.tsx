@@ -179,6 +179,14 @@ export default async function SitePage({
           >
             Findings
           </Link>
+          {/* Label stays English: this link lives on the dashboard, which is
+              English by decision. Only the document it opens is Serbian. */}
+          <Link
+            href={`/site/${slug}/report`}
+            className="text-sm text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+          >
+            Client report (SR)
+          </Link>
           <Badge className={cn("shrink-0", FRESHNESS_STYLES[summary.freshness.level])}>
             {FRESHNESS_LABEL[summary.freshness.level]}
           </Badge>
