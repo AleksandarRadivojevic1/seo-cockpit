@@ -1,11 +1,10 @@
 import EmptyState from "./EmptyState";
-import { STRIKING_MAX_POS, STRIKING_MIN_POS } from "../lib/analysis/signals";
 import type { SignalEntry } from "../lib/analysis/signals";
 import type { SiteSummary } from "../lib/portfolio";
 
 type DataState = SiteSummary["dataState"];
 
-interface StrikingTableProps {
+interface NonBrandTableProps {
   entries: SignalEntry[];
   /** Drives *which* empty state renders when `entries` is empty. */
   dataState: DataState;
@@ -19,12 +18,14 @@ function formatPercent(ratio: number): string {
  * Why this panel has nothing to show.
  *
  * Three genuinely different reasons, and they must never collapse into one
- * message. "Collected, and no query sits in the band" is a *finding* — it
- * tells Alex his queries are on page 1 or buried past page 2. "Nothing was
- * collected" tells him the pipeline hasn't reached this site. Rendering the
- * first as the second is the bug this project has now hit four times.
+ * message. "Nothing was collected" says the pipeline hasn't reached this site.
+ * "No impressions" says it was measured and the site was invisible. "Every
+ * query is your own name" is the strongest *finding* of the three — it means
+ * the site is only found by people already looking for it, which is precisely
+ * the condition the demand-gap panel exists to fix. Rendering any of these as
+ * another is the bug this project has now hit four times.
  */
-function StrikingEmpty({ dataState }: { dataState: DataState }) {
+function NonBrandEmpty({ dataState }: { dataState: DataState }) {
   if (dataState === "not-collected") {
     return <EmptyState title="Not collected yet" />;
   }
@@ -33,27 +34,32 @@ function StrikingEmpty({ dataState }: { dataState: DataState }) {
   }
   return (
     <EmptyState
-      title={`No queries in striking distance`}
-      description={`Nothing currently ranks between positions ${STRIKING_MIN_POS} and ${STRIKING_MAX_POS}.`}
+      title="Every query is your own brand name"
+      description="Nobody found this site except by searching for it directly. See the demand panel below for what it could be ranking for."
     />
   );
 }
 
 /**
- * Queries ranked by remaining upside — the per-site money view.
+ * Non-brand queries the site ranks for, ordered by remaining upside — the
+ * per-site money view.
  *
  * Opportunity is shown as a bar relative to the top-scoring row, never as a
  * number: the score is `impressions × gapToPage1 × (1 − ctr)`, which is
  * unbounded and unitless, so a printed "912.4" would imply a precision and
  * an absolute scale it does not have. The three inputs that produce it sit
  * in the same row, so the ranking stays explainable from what's on screen.
+ *
+ * Rows already on page 1 score 0 and sort last. They are kept rather than
+ * filtered because "you already rank here" is information; an empty bar is
+ * the honest rendering of "no upside left", not of "no data".
  */
-export default function StrikingTable({ entries, dataState }: StrikingTableProps) {
+export default function NonBrandTable({ entries, dataState }: NonBrandTableProps) {
   if (entries.length === 0) {
-    return <StrikingEmpty dataState={dataState} />;
+    return <NonBrandEmpty dataState={dataState} />;
   }
 
-  const ranked = [...entries].sort((a, b) => b.score - a.score);
+  const ranked = [...entries].sort((a, b) => b.score - a.score || b.impressions - a.impressions);
   const topScore = ranked[0].score;
 
   return (

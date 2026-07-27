@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import SignalList from "../components/SignalList";
-import StrikingTable from "../components/StrikingTable";
+import NonBrandTable from "../components/NonBrandTable";
 import type { SignalEntry } from "../lib/analysis/signals";
 
 function entry(overrides: Partial<SignalEntry> & { query: string }): SignalEntry {
@@ -23,10 +23,10 @@ function render(element: ReturnType<typeof createElement>): string {
   return renderToStaticMarkup(element);
 }
 
-describe("StrikingTable", () => {
+describe("NonBrandTable", () => {
   it("orders rows by opportunity score, highest first", () => {
     const html = render(
-      createElement(StrikingTable, {
+      createElement(NonBrandTable, {
         entries: [
           entry({ query: "low-value", score: 10 }),
           entry({ query: "high-value", score: 900 }),
@@ -42,7 +42,7 @@ describe("StrikingTable", () => {
 
   it("shows the inputs that produce the score, so the ranking is explainable", () => {
     const html = render(
-      createElement(StrikingTable, {
+      createElement(NonBrandTable, {
         entries: [entry({ query: "sočiva cena", impressions: 42, position: 18.4, ctr: 0.024 })],
         dataState: "ok",
       })
@@ -59,7 +59,7 @@ describe("StrikingTable", () => {
     // a bare "912.4" implies a precision and a scale it does not have. The
     // bar carries the ranking instead.
     const html = render(
-      createElement(StrikingTable, {
+      createElement(NonBrandTable, {
         entries: [entry({ query: "q", score: 912.4 })],
         dataState: "ok",
       })
@@ -71,7 +71,7 @@ describe("StrikingTable", () => {
 
   it("scales each bar against the top-scoring row", () => {
     const html = render(
-      createElement(StrikingTable, {
+      createElement(NonBrandTable, {
         entries: [entry({ query: "top", score: 400 }), entry({ query: "half", score: 200 })],
         dataState: "ok",
       })
@@ -82,19 +82,21 @@ describe("StrikingTable", () => {
   });
 });
 
-describe("StrikingTable empty states", () => {
+describe("NonBrandTable empty states", () => {
   // Three different reasons a panel can be empty. Collapsing any pair would
   // repeat this project's most-repeated bug: telling Alex nothing was
-  // collected when the honest answer is "collected, and there is nothing in
-  // the band" -- which is a finding, not a gap.
+  // collected when the honest answer is "collected, and every query is the
+  // brand name" -- which is a finding, and on these sites the most important
+  // one the dashboard can report.
   function emptyHtml(dataState: "ok" | "zero" | "not-collected"): string {
-    return render(createElement(StrikingTable, { entries: [], dataState }));
+    return render(createElement(NonBrandTable, { entries: [], dataState }));
   }
 
-  it("says the band is empty when data exists but no query is in it", () => {
+  it("says every query is brand when data exists but none is non-brand", () => {
     const html = emptyHtml("ok");
-    expect(html).toMatch(/striking distance/i);
+    expect(html).toMatch(/own brand name/i);
     expect(html).not.toMatch(/not collected/i);
+    expect(html).not.toMatch(/no impressions/i);
   });
 
   it("says impressions were zero when the site measured zero", () => {

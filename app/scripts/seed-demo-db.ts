@@ -3,8 +3,8 @@
  *
  * Why this exists: the real seo.db is too thin to judge a layout against.
  * Across all three real sites only six queries clear the noise floor, and
- * none of them fall in the striking-distance band — so the panels 11b adds
- * render empty everywhere. A design can't be reviewed against nothing.
+ * four of those are the client's own brand name — so most panels render
+ * empty everywhere. A design can't be reviewed against nothing.
  *
  * Run:  node --experimental-strip-types scripts/seed-demo-db.ts [outPath]
  * Then: SEO_DB_PATH=<outPath> npm run dev
@@ -110,12 +110,12 @@ interface DemoQuery {
  * RISING_MIN_DELTA (10) wherever a difference is intended.
  */
 const RICH_QUERIES: DemoQuery[] = [
-  // --- striking distance: recent position inside 11..20 ---------------
+  // --- non-brand, off page 1: the opportunity list's main content ------
   // Spread of impressions and CTR so opportunity scores differ widely and
   // the ranking bar has something to show.
   // Prior impressions deliberately EQUAL recent for these: a per-day drift
   // of even 1 becomes a 28-impression aggregate delta, which would drag the
-  // whole striking set into "rising" and make that list meaningless.
+  // whole set into "rising" and make that list meaningless.
   { query: "sočiva cena", recent: { impressions: 42, clicks: 1, position: 18.4 }, prior: { impressions: 42, clicks: 1, position: 18.9 } },
   { query: "kontaktna sočiva online", recent: { impressions: 30, clicks: 0, position: 14.2 }, prior: { impressions: 30, clicks: 0, position: 15.0 } },
   { query: "naočare za vid cena", recent: { impressions: 24, clicks: 2, position: 12.1 }, prior: { impressions: 24, clicks: 2, position: 12.6 } },
@@ -141,12 +141,17 @@ const RICH_QUERIES: DemoQuery[] = [
   { query: "naočare za decu", recent: { impressions: 21, clicks: 2, position: 9.4 }, prior: null },
   { query: "polarizovana sočiva", recent: { impressions: 13, clicks: 1, position: 7.7 }, prior: null },
 
-  // --- brand terms, page 1, no striking gap ---------------------------
+  // --- brand terms, page 1: excluded from the non-brand panel ---------
   { query: "demo optika", recent: { impressions: 88, clicks: 31, position: 1.2 }, prior: { impressions: 88, clicks: 28, position: 1.3 } },
   { query: "demo optika leskovac", recent: { impressions: 35, clicks: 12, position: 2.1 }, prior: { impressions: 35, clicks: 11, position: 2.0 } },
 ];
 
-/** Thin site: real queries, but none in the striking band and no movement. */
+/**
+ * Thin site: real queries, no movement, and — deliberately — every one of
+ * them is the brand name. This is the fixture for the non-brand panel's
+ * "Every query is your own brand name" state, which is exactly what the two
+ * real client sites look like.
+ */
 const THIN_QUERIES: DemoQuery[] = [
   { query: "demo saas", recent: { impressions: 9, clicks: 4, position: 1.4 }, prior: { impressions: 9, clicks: 4, position: 1.5 } },
   { query: "demo saas pricing", recent: { impressions: 4, clicks: 1, position: 3.2 }, prior: { impressions: 4, clicks: 1, position: 3.1 } },

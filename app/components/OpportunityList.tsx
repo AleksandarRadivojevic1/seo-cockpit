@@ -11,13 +11,12 @@ interface OpportunityListProps {
  * Highest-upside queries across the whole portfolio.
  *
  * Ranked by opportunity score with a bar relative to the top row, matching
- * the per-site striking table — the score is unbounded and unitless, so a
+ * the per-site non-brand table — the score is unbounded and unitless, so a
  * printed number would imply a scale it does not have.
  *
- * Unlike that table this is NOT restricted to the striking-distance band.
- * On the real portfolio the band is empty everywhere while one query still
- * carries genuine upside, and a home page that hid it behind a position
- * filter would answer "what should I work on?" with silence.
+ * Unlike that table, rows scoring 0 are dropped here. Per-site, "you already
+ * rank on page 1 for this" is worth seeing; in a cross-site list of what to
+ * work on next, a query with no remaining upside is just noise.
  */
 export default function OpportunityList({ entries }: OpportunityListProps) {
   if (entries.length === 0) {

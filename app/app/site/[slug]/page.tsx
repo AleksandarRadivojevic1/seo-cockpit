@@ -11,7 +11,7 @@ import EmptyState from "../../../components/EmptyState";
 // panel below, so switching back is a one-line change rather than an undo.
 import LighthouseRings from "../../../components/LighthouseRings";
 import SignalList from "../../../components/SignalList";
-import StrikingTable from "../../../components/StrikingTable";
+import NonBrandTable from "../../../components/NonBrandTable";
 import TopPagesBar from "../../../components/TopPagesBar";
 import TrendChart from "../../../components/TrendChart";
 import type { TrendPoint } from "../../../components/TrendChart";
@@ -194,18 +194,19 @@ export default async function SitePage({
       <section className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
         <div className="flex items-baseline justify-between gap-2">
           <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Striking distance
+            Non-brand queries
           </h2>
-          {signals.strikingDistance.length > 0 && (
+          {signals.nonBrandQueries.length > 0 && (
             <span className="text-xs tabular-nums text-muted-foreground">
-              {signals.strikingDistance.length} queries
+              {signals.nonBrandQueries.length}{" "}
+              {signals.nonBrandQueries.length === 1 ? "query" : "queries"}
             </span>
           )}
         </div>
         <p className="pt-0.5 pb-2 text-xs text-muted-foreground/70">
-          Page-2 queries ranked by remaining upside.
+          Queries that found this site without naming it, ranked by remaining upside.
         </p>
-        <StrikingTable entries={signals.strikingDistance} dataState={summary.dataState} />
+        <NonBrandTable entries={signals.nonBrandQueries} dataState={summary.dataState} />
       </section>
 
       {/* Two columns, not four: query text is the content here, and at

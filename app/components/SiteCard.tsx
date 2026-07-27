@@ -221,7 +221,7 @@ export default function SiteCard({ summary }: SiteCardProps) {
             <FooterStat label="Avg pos">
               {summary.avgPosition !== null ? summary.avgPosition.toFixed(1) : "—"}
             </FooterStat>
-            <FooterStat label="Striking">{summary.strikingCount}</FooterStat>
+            <FooterStat label="Non-brand">{summary.nonBrandCount}</FooterStat>
             <FooterStat label="CWV">
               <span className={CWV_STYLES[summary.cwv.verdict]}>
                 {CWV_LABEL[summary.cwv.verdict]}

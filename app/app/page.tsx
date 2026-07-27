@@ -94,12 +94,10 @@ export default async function Home() {
     configs.map((config) => {
       const { recent, prior } = recentVsPrior(config.property, asOf);
       const signals = deriveSignals(recent, prior, config.brandToken);
-      // Every query with recent-window presence, not just the striking
-      // band -- see rankOpportunities for why the band is wrong here.
       return {
         slug: config.slug,
         name: config.displayName,
-        entries: [...signals.strikingDistance, ...signals.emerging, ...signals.rising],
+        entries: signals.nonBrandQueries,
       };
     }),
     OPPORTUNITY_LIMIT

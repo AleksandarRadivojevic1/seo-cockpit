@@ -7,7 +7,6 @@ import {
   NOISE_FLOOR_IMPRESSIONS,
   POSITION_MOVE_MIN,
   RISING_MIN_DELTA,
-  STRIKING_MIN_POS,
 } from "../lib/analysis/signals";
 
 function agg(overrides: Partial<AggregatedQuery>): AggregatedQuery {
@@ -39,21 +38,23 @@ describe("deriveSignals", () => {
     const recent = new Map<string, AggregatedQuery>();
     const prior = new Map<string, AggregatedQuery>();
 
-    // --- strikingDistance candidates ---
-    // Inside [11,20], real impressions. Hand-computed opportunityScore:
-    // "striking a" pos=11 (the new lower boundary) -> gap=1, ctr=3/300=0.01 -> score=300*1*0.99=297
-    recent.set("striking a", agg({ impressions: 300, clicks: 3, position: 11 }));
-    // "striking b" pos=12 -> gap=2, ctr=10/500=0.02 -> score=500*2*0.98=980
-    recent.set("striking b", agg({ impressions: 500, clicks: 10, position: 12 }));
-    // "striking c" pos=20 -> gap=10, ctr=0/100=0 -> score=100*10*1=1000
-    recent.set("striking c", agg({ impressions: 100, clicks: 0, position: 20 }));
-    // Excluded: position < 11 but still page-2-ish (~9) -- pins the new boundary:
-    // pos=9 is one spot below the raised STRIKING_MIN_POS(11) and must NOT appear.
-    recent.set("just below boundary", agg({ impressions: 900, clicks: 5, position: 9 }));
-    // Excluded: position well above page 1
-    recent.set("too high", agg({ impressions: 900, clicks: 5, position: 5 }));
-    // Excluded: position > 20
-    recent.set("too low", agg({ impressions: 900, clicks: 5, position: 21 }));
+    // --- non-brand queries at a spread of positions ---
+    // Hand-computed opportunityScore for each:
+    // pos=11 -> gap=1, ctr=3/300=0.01 -> score=300*1*0.99=297
+    recent.set("offpage a", agg({ impressions: 300, clicks: 3, position: 11 }));
+    // pos=12 -> gap=2, ctr=10/500=0.02 -> score=500*2*0.98=980
+    recent.set("offpage b", agg({ impressions: 500, clicks: 10, position: 12 }));
+    // pos=20 -> gap=10, ctr=0/100=0 -> score=100*10*1=1000
+    recent.set("offpage c", agg({ impressions: 100, clicks: 0, position: 20 }));
+    // Page 1, so score=0 -- these are the rows the old 11-20 band threw away
+    // and the new list deliberately keeps: "you already rank here" is a
+    // finding, not an absence.
+    recent.set("page one nine", agg({ impressions: 900, clicks: 5, position: 9 }));
+    recent.set("page one five", agg({ impressions: 900, clicks: 5, position: 5 }));
+    // Past page 2 -- the old band excluded this outright, and on the real
+    // portfolio it is exactly where the single genuine opportunity lives
+    // ("tečnost za sočiva" at 30.5). gap=11, ctr=5/900 -> score=9845
+    recent.set("deep but valuable", agg({ impressions: 900, clicks: 5, position: 21 }));
 
     // --- rising / not rising ---
     recent.set("rising query", agg({ impressions: 100, clicks: 5, position: 25 }));
@@ -80,7 +81,7 @@ describe("deriveSignals", () => {
 
     // --- single-impression noise ---
     recent.set("noise query", agg({ impressions: 1, clicks: 0, position: 12 }));
-    // no prior -> would otherwise be emerging AND in striking band, but impressions < NOISE_FLOOR
+    // no prior -> would otherwise be emerging AND non-brand, but impressions < NOISE_FLOOR
 
     // --- brand / non-brand ---
     recent.set("acme shoes", agg({ impressions: 1000, clicks: 100, position: 3 }));
@@ -93,34 +94,57 @@ describe("deriveSignals", () => {
     return { recent, prior };
   }
 
-  it("includes queries in the [11,20] striking-distance band, ordered by opportunityScore desc, and excludes queries outside it", () => {
+  it("nonBrandQueries: excludes brand terms and keeps every non-brand query regardless of position", () => {
     const { recent, prior } = buildFixture();
-    const { strikingDistance } = deriveSignals(recent, prior, BRAND);
+    const { nonBrandQueries } = deriveSignals(recent, prior, BRAND);
 
-    expect(STRIKING_MIN_POS).toBe(11);
+    const queries = nonBrandQueries.map((e) => e.query);
 
-    const queries = strikingDistance.map((e) => e.query);
-    expect(queries).toContain("striking a");
-    expect(queries).toContain("striking b");
-    expect(queries).toContain("striking c");
-    // Boundary: pos=9 (just below the raised STRIKING_MIN_POS=11) is excluded.
-    expect(queries).not.toContain("just below boundary");
-    expect(queries).not.toContain("too high");
-    expect(queries).not.toContain("too low");
-    expect(queries).not.toContain("noise query"); // dropped by noise floor
+    // Brand terms never appear, at any position or impression count.
+    expect(queries).not.toContain("acme shoes");
+    expect(queries).not.toContain("Acme Reviews");
+    // Noise floor still applies.
+    expect(queries).not.toContain("noise query");
 
-    // Hand-computed scores: c=1000, b=980, a=297
-    const scoresInOrder = strikingDistance
-      .filter((e) => ["striking a", "striking b", "striking c"].includes(e.query))
-      .map((e) => e.query);
-    expect(scoresInOrder).toEqual(["striking c", "striking b", "striking a"]);
+    // The three positions the old 11-20 band would have accepted...
+    expect(queries).toContain("offpage a");
+    expect(queries).toContain("offpage b");
+    expect(queries).toContain("offpage c");
+    // ...and the ones it wrongly rejected. This is the whole point of the
+    // change: on the real portfolio the band matched nothing while the only
+    // query with real upside sat at position 30.5.
+    expect(queries).toContain("deep but valuable");
+    expect(queries).toContain("page one nine");
+    expect(queries).toContain("page one five");
+  });
 
-    const a = strikingDistance.find((e) => e.query === "striking a")!;
-    expect(a.score).toBeCloseTo(297, 10);
-    const b = strikingDistance.find((e) => e.query === "striking b")!;
-    expect(b.score).toBeCloseTo(980, 10);
-    const c = strikingDistance.find((e) => e.query === "striking c")!;
-    expect(c.score).toBeCloseTo(1000, 10);
+  it("nonBrandQueries: sorts by opportunity score desc, breaking ties on impressions", () => {
+    const { recent, prior } = buildFixture();
+    const { nonBrandQueries } = deriveSignals(recent, prior, BRAND);
+
+    const scores = nonBrandQueries.map((e) => e.score);
+    expect(scores).toEqual([...scores].sort((a, b) => b - a));
+
+    // The deepest query carries the highest score and therefore leads.
+    expect(nonBrandQueries[0].query).toBe("deep but valuable");
+    expect(nonBrandQueries[0].score).toBeCloseTo(9845, 10);
+
+    // "offpage b" (500 impr) and "emerging query" (50 impr) both score
+    // exactly 980; impressions break the tie.
+    const tied = nonBrandQueries.filter((e) => Math.abs(e.score - 980) < 1e-9).map((e) => e.query);
+    expect(tied).toEqual(["offpage b", "emerging query"]);
+  });
+
+  it("nonBrandQueries: keeps page-1 queries with a zero score rather than dropping them", () => {
+    const { recent, prior } = buildFixture();
+    const { nonBrandQueries } = deriveSignals(recent, prior, BRAND);
+
+    const pageOne = nonBrandQueries.find((e) => e.query === "page one nine")!;
+    expect(pageOne.score).toBe(0);
+    // Zero-score rows sort last, but they are present -- an empty opportunity
+    // bar means "no upside left", which is not the same as "not ranking".
+    const lastScores = nonBrandQueries.slice(-4).map((e) => e.score);
+    expect(lastScores).toEqual([0, 0, 0, 0]);
   });
 
   it("rising: includes a query whose impressions rose >= RISING_MIN_DELTA, excludes one that rose less", () => {
@@ -222,12 +246,12 @@ describe("deriveSignals", () => {
     expect(declining.map((e) => e.query)).toEqual(["decline worse", "decline mild"]);
   });
 
-  it("single-impression noise: a query with recent impressions=1 is dropped from emerging/rising/striking lists", () => {
+  it("single-impression noise: a query with recent impressions=1 is dropped from every signal list", () => {
     const { recent, prior } = buildFixture();
     const signals = deriveSignals(recent, prior, BRAND);
 
     expect(NOISE_FLOOR_IMPRESSIONS).toBe(2);
-    for (const list of [signals.emerging, signals.rising, signals.climbing, signals.declining, signals.strikingDistance]) {
+    for (const list of [signals.emerging, signals.rising, signals.climbing, signals.declining, signals.nonBrandQueries]) {
       expect(list.map((e) => e.query)).not.toContain("noise query");
     }
   });

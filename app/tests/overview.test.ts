@@ -24,7 +24,7 @@ function summary(overrides: Partial<SiteSummary>): SiteSummary {
     clicks: { recent: 0, prior: 0, deltaPct: null },
     avgPosition: null,
     sparkline: [],
-    strikingCount: 0,
+    nonBrandCount: 0,
     cwv: { verdict: "none", lcp: null, inp: null, cls: null },
     freshness: { latestDate: null, daysBehind: null, level: "none" },
     ...overrides,

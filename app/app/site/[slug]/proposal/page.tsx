@@ -50,13 +50,11 @@ export default async function ProposalPage({
   const totalImpressions = rows.reduce((sum, row) => sum + row.impressions, 0);
   const weightedPosition = rows.reduce((sum, row) => sum + row.position * row.impressions, 0);
 
-  // Same rule as the overview's opportunity list: rank by upside across
-  // every query rather than the striking band, which is empty on these
-  // sites and would leave a client document with nothing in its most
-  // important section.
-  const opportunities = [...signals.strikingDistance, ...signals.emerging, ...signals.rising]
+  // Same rule as the overview's opportunity list: non-brand queries with
+  // upside remaining. A client document's most important section must not
+  // list the client's own name back at them as an "opportunity".
+  const opportunities = signals.nonBrandQueries
     .filter((entry) => entry.score > 0)
-    .sort((a, b) => b.score - a.score)
     .slice(0, PROPOSAL_LIMIT);
 
   const input: ProposalInput = {

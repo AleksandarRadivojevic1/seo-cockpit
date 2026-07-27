@@ -224,8 +224,10 @@ describe("buildSiteSummary", () => {
     insertTotals.run(SITE_OK, "2026-01-20", 50, 1000, 0.05, 20);
     // One prior-window row so dataState is 'ok' and deltaPct is computable.
     insertTotals.run(SITE_OK, "2025-12-19", 20, 100, 0.2, 5);
-    // A striking-distance query (position 15, within 11-20) in the recent window.
-    insertQuery.run(SITE_OK, "2026-01-16", "striking query", 1, 20, 0.05, 15);
+    // One non-brand query (brand_token for this site is "oksite") and one
+    // brand query, so the count proves the brand filter actually runs.
+    insertQuery.run(SITE_OK, "2026-01-16", "non-brand query", 1, 20, 0.05, 15);
+    insertQuery.run(SITE_OK, "2026-01-16", "oksite reviews", 2, 30, 0.066, 4);
     insertCwv.run(SITE_OK, "https://ok-site.test/", "2026-02-01T00:00:00Z", 5000, 150, 0.05, "crux", "PHONE");
 
     // SITE_COLLECTING: impressions in the recent window, but nothing at all
@@ -357,14 +359,14 @@ describe("buildSiteSummary", () => {
     }
   });
 
-  it("wires strikingCount from deriveSignals(recentVsPrior(...))", () => {
+  it("wires nonBrandCount from deriveSignals, excluding brand queries", () => {
     const summary = buildSiteSummary(configFor("ok-site"), AS_OF, getDb(fixturePath));
-    expect(summary.strikingCount).toBe(1);
+    expect(summary.nonBrandCount).toBe(1);
   });
 
-  it("treats a strikingCount of 0 as a valid measurement, not an error", () => {
+  it("treats a nonBrandCount of 0 as a valid measurement, not an error", () => {
     const summary = buildSiteSummary(configFor("collecting-site"), AS_OF, getDb(fixturePath));
-    expect(summary.strikingCount).toBe(0);
+    expect(summary.nonBrandCount).toBe(0);
   });
 
   it("wires cwv from the latest cwv_snapshots row", () => {
@@ -412,7 +414,7 @@ describe("SiteCard", () => {
       clicks: { recent: 100, prior: 80, deltaPct: 25 },
       avgPosition: 12.3,
       sparkline: Array.from({ length: 28 }, (_, i) => i),
-      strikingCount: 3,
+      nonBrandCount: 3,
       cwv: { verdict: "good", lcp: 2000, inp: 150, cls: 0.05 },
       freshness: { latestDate: "2026-02-14", daysBehind: 1, level: "fresh" },
       ...overrides,
@@ -449,7 +451,7 @@ describe("SiteCard", () => {
         avgPosition: null,
         // Rows exist (measured zeroes), unlike the 'not-collected' case below.
         sparkline: Array(28).fill(0),
-        strikingCount: 0,
+        nonBrandCount: 0,
         cwv: { verdict: "none", lcp: null, inp: null, cls: null },
       })
     );
@@ -465,7 +467,7 @@ describe("SiteCard", () => {
         clicks: { recent: 0, prior: 0, deltaPct: null },
         avgPosition: null,
         sparkline: Array(28).fill(null),
-        strikingCount: 0,
+        nonBrandCount: 0,
         cwv: { verdict: "none", lcp: null, inp: null, cls: null },
       })
     );
@@ -481,7 +483,7 @@ describe("SiteCard", () => {
         clicks: { recent: 0, prior: 0, deltaPct: null },
         avgPosition: null,
         sparkline: Array(28).fill(0),
-        strikingCount: 0,
+        nonBrandCount: 0,
         cwv: { verdict: "none", lcp: null, inp: null, cls: null },
       })
     );
@@ -491,7 +493,7 @@ describe("SiteCard", () => {
         clicks: { recent: 0, prior: 0, deltaPct: null },
         avgPosition: null,
         sparkline: Array(28).fill(null),
-        strikingCount: 0,
+        nonBrandCount: 0,
         cwv: { verdict: "none", lcp: null, inp: null, cls: null },
       })
     );

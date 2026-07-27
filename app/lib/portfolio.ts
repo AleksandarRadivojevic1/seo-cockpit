@@ -21,7 +21,7 @@ export interface SiteSummary {
    * or a stale collector reads on-screen as a traffic collapse.
    */
   sparkline: (number | null)[];
-  strikingCount: number;
+  nonBrandCount: number;
   cwv: {
     verdict: CwvVerdict;
     lcp: number | null;
@@ -113,7 +113,7 @@ function buildSparkline(
 /**
  * Assembles everything the portfolio overview card needs for one site:
  * click totals + trend, impression-weighted avg position, a 28-day
- * sparkline, striking-distance count, CWV verdict, and freshness — all
+ * sparkline, non-brand query count, CWV verdict, and freshness — all
  * derived from the already-tested lib/db.ts and lib/analysis/* helpers.
  */
 export function buildSiteSummary(
@@ -154,7 +154,7 @@ export function buildSiteSummary(
   const sparkline = buildSparkline(recentRows, recentStart, recentEnd);
 
   const { recent, prior } = recentVsPrior(config.property, asOf, db);
-  const strikingCount = deriveSignals(recent, prior, config.brandToken).strikingDistance.length;
+  const nonBrandCount = deriveSignals(recent, prior, config.brandToken).nonBrandQueries.length;
 
   const cwvRow = latestCwv(config.property, db);
   const cwv = {
@@ -172,7 +172,7 @@ export function buildSiteSummary(
     clicks: { recent: recentClicks, prior: priorClicks, deltaPct },
     avgPosition,
     sparkline,
-    strikingCount,
+    nonBrandCount,
     cwv,
     freshness: freshness(latestDate, asOf),
   };

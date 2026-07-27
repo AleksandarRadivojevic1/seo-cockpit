@@ -8,15 +8,6 @@ export const NOISE_FLOOR_IMPRESSIONS = 2;
 export const RISING_MIN_DELTA = 10;
 /** Minimum position change (spots) for a query to count as "climbing" or "declining". */
 export const POSITION_MOVE_MIN = 3;
-/**
- * Inclusive lower bound of the "striking distance" position band (strict
- * page-2 band, 11-20). Positions 8-10 are already on page 1, where
- * gapToPage1 = max(0, position - 10) scores 0 -- starting at 11 keeps every
- * listed keyword with a real gap and a non-zero opportunity score.
- */
-export const STRIKING_MIN_POS = 11;
-/** Inclusive upper bound of the "striking distance" position band. */
-export const STRIKING_MAX_POS = 20;
 /** Cap on the number of entries returned per signal list. */
 export const TOP_N = 50;
 
@@ -47,7 +38,21 @@ export interface Signals {
   rising: SignalEntry[];
   climbing: SignalEntry[];
   declining: SignalEntry[];
-  strikingDistance: SignalEntry[];
+  /**
+   * Every non-brand query the site actually ranks for, ranked by remaining
+   * upside. Replaced the old "striking distance" position band (11-20) in
+   * T2.6.
+   *
+   * The band was the textbook definition and it matched *nothing*: measured
+   * across all three real sites, zero queries sat in 11-20, while the one
+   * query carrying genuine upside ("tečnost za sočiva") sat at position 30.5
+   * and the site's only other non-brand ranking ("optika leskovac") sat at
+   * 8.7. The band assumes a site with hundreds of ranking queries where page
+   * 2 is a crowded waiting room; these sites rank for their own brand name
+   * and little else, so the question worth asking is not "what is on page 2"
+   * but "what do we rank for that isn't our own name".
+   */
+  nonBrandQueries: SignalEntry[];
   brandSplit: BrandSplit;
 }
 
@@ -78,7 +83,7 @@ function toEntry(
  * Derives all opportunity/movement signals from a recent-vs-prior window pair.
  *
  * The NOISE_FLOOR_IMPRESSIONS floor is applied to recent-window presence for
- * every signal *list* (emerging/rising/climbing/declining/strikingDistance) —
+ * every signal *list* (emerging/rising/climbing/declining/nonBrandQueries) —
  * a query with fewer than NOISE_FLOOR_IMPRESSIONS recent impressions is
  * dropped from all of them. brandSplit is a totals metric over the whole
  * window and deliberately does NOT apply the noise floor, so every query
@@ -94,7 +99,7 @@ export function deriveSignals(
   const rising: SignalEntry[] = [];
   const climbing: SignalEntry[] = [];
   const declining: SignalEntry[] = [];
-  const strikingDistance: SignalEntry[] = [];
+  const nonBrandQueries: SignalEntry[] = [];
 
   for (const [query, recentRow] of recent) {
     if (recentRow.impressions < NOISE_FLOOR_IMPRESSIONS) continue;
@@ -119,8 +124,8 @@ export function deriveSignals(
       }
     }
 
-    if (recentRow.position >= STRIKING_MIN_POS && recentRow.position <= STRIKING_MAX_POS) {
-      strikingDistance.push(toEntry(query, recentRow, priorRow));
+    if (!isBrand(query, brandToken)) {
+      nonBrandQueries.push(toEntry(query, recentRow, priorRow));
     }
   }
 
@@ -134,7 +139,12 @@ export function deriveSignals(
     if (impressionsDiff !== 0) return impressionsDiff;
     return (a.positionDelta as number) - (b.positionDelta as number);
   });
-  strikingDistance.sort((a, b) => b.score - a.score);
+  // Score first, impressions as tiebreaker. A page-1 non-brand query scores 0
+  // (gapToPage1 is 0 there) but still belongs in the list -- "you already rank
+  // for this" is a finding, not an absence -- so it sorts to the bottom rather
+  // than being filtered out. Callers that want only remaining upside filter on
+  // score > 0 themselves; see rankOpportunities.
+  nonBrandQueries.sort((a, b) => b.score - a.score || b.impressions - a.impressions);
 
   const brand: BrandTotals = { impressions: 0, clicks: 0 };
   const nonBrand: BrandTotals = { impressions: 0, clicks: 0 };
@@ -167,7 +177,7 @@ export function deriveSignals(
     rising: rising.slice(0, TOP_N),
     climbing: climbing.slice(0, TOP_N),
     declining: declining.slice(0, TOP_N),
-    strikingDistance: strikingDistance.slice(0, TOP_N),
+    nonBrandQueries: nonBrandQueries.slice(0, TOP_N),
     brandSplit,
   };
 }

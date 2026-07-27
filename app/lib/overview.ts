@@ -75,15 +75,13 @@ export function portfolioTotals(summaries: SiteSummary[]): PortfolioTotals {
 /**
  * Ranks queries across every site by opportunity score.
  *
- * Deliberately NOT limited to the striking-distance band (positions 11-20)
- * the per-site table uses. Measured on the real portfolio, that band is
- * empty on all three sites while exactly one query — "tečnost za sočiva" at
- * position 30.5 — carries a non-zero score. A home page that hid the only
- * real opportunity behind a band filter would be worse than useless.
+ * Callers pass `signals.nonBrandQueries`, so brand terms never appear here:
+ * "you rank second for your own company name" is not an opportunity.
  *
  * Entries scoring 0 are dropped rather than listed: `gapToPage1` is 0 for
  * anything already on page 1, so a zero score means "no upside from
- * ranking higher", not "small upside".
+ * ranking higher", not "small upside". The per-site table keeps those rows
+ * (ranking already is worth seeing); a cross-site *opportunity* list does not.
  */
 export function rankOpportunities(
   perSite: { slug: string; name: string; entries: SignalEntry[] }[],
