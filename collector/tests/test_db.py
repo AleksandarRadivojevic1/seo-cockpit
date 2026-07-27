@@ -6,8 +6,10 @@ from seocockpit.db import (
     finish_run,
     init_db,
     insert_cwv,
+    prune_demand_keywords,
     start_run,
     upsert_country_daily,
+    upsert_demand_keywords,
     upsert_page_daily,
     upsert_query_daily,
     upsert_sites,
@@ -598,3 +600,92 @@ def test_indexes_exist(conn):
         set(("site", "query", "date")) <= set(c) for c in cols_for("query_daily")
     )
     assert index_names  # sanity: at least some indexes were created
+
+
+# --------------------------------------------------------------------------
+# prune_demand_keywords (2026-07-27)
+# --------------------------------------------------------------------------
+
+
+def _demand_row(site, keyword, source, seed):
+    return {
+        "site": site,
+        "keyword": keyword,
+        "source": source,
+        "seed": seed,
+        "suggest_rank": 0,
+        "rising_pct": None,
+        "rising_label": None,
+        "top_value": None,
+        "volume": None,
+        "first_seen": "2026-07-01T00:00:00+00:00",
+        "last_seen": "2026-07-27T00:00:00+00:00",
+    }
+
+
+def test_prune_removes_keywords_from_retired_seeds_only(tmp_path):
+    conn = init_db(tmp_path / "p.db")
+    site = "https://skedio.rs/"
+    upsert_demand_keywords(
+        conn,
+        [
+            _demand_row(site, "cene goriva", "autocomplete", "cene"),
+            _demand_row(site, "povratak zikine dinastije", "autocomplete", "povrat"),
+            _demand_row(site, "aplikacija za zakazivanje termina", "autocomplete", "aplikacija za zakazivanje"),
+        ],
+    )
+
+    removed = prune_demand_keywords(conn, site, "autocomplete", ["aplikacija za zakazivanje"])
+
+    assert removed == 2
+    remaining = [r[0] for r in conn.execute("SELECT keyword FROM demand_keywords")]
+    assert remaining == ["aplikacija za zakazivanje termina"]
+
+
+def test_prune_never_touches_a_different_source(tmp_path):
+    """Autocomplete is free; Trends costs credits. A free prune must never
+    delete metered data."""
+    conn = init_db(tmp_path / "p.db")
+    site = "https://skedio.rs/"
+    upsert_demand_keywords(
+        conn,
+        [
+            _demand_row(site, "cene goriva", "autocomplete", "cene"),
+            _demand_row(site, "naocare", "serpapi_trends", "naocare"),
+        ],
+    )
+
+    prune_demand_keywords(conn, site, "autocomplete", ["aplikacija za zakazivanje"])
+
+    sources = sorted(r[0] for r in conn.execute("SELECT source FROM demand_keywords"))
+    assert sources == ["serpapi_trends"]
+
+
+def test_prune_never_touches_another_site(tmp_path):
+    conn = init_db(tmp_path / "p.db")
+    upsert_demand_keywords(
+        conn,
+        [
+            _demand_row("https://skedio.rs/", "cene goriva", "autocomplete", "cene"),
+            _demand_row("https://optikacajs.rs/", "naocare za sunce muske", "autocomplete", "naocare za sunce"),
+        ],
+    )
+
+    prune_demand_keywords(conn, "https://skedio.rs/", "autocomplete", ["aplikacija za salon"])
+
+    remaining = [r[0] for r in conn.execute("SELECT site FROM demand_keywords")]
+    assert remaining == ["https://optikacajs.rs/"]
+
+
+def test_prune_with_no_seeds_is_a_no_op_rather_than_deleting_everything(tmp_path):
+    """An empty seed list means 'we did not run', not 'nothing is valid'.
+
+    Deleting the site's whole keyword set because a discovery run produced
+    no seeds would destroy good data on a configuration mistake.
+    """
+    conn = init_db(tmp_path / "p.db")
+    site = "https://skedio.rs/"
+    upsert_demand_keywords(conn, [_demand_row(site, "kw", "autocomplete", "seed")])
+
+    assert prune_demand_keywords(conn, site, "autocomplete", []) == 0
+    assert conn.execute("SELECT COUNT(*) FROM demand_keywords").fetchone()[0] == 1

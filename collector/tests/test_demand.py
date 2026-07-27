@@ -264,3 +264,43 @@ class TestGenericSlugStoplist:
         # Only the WHOLE slug is generic; "kontaktna sociva" must not be
         # caught by the "kontakt" entry.
         assert seeds_from_pages(["https://x.rs/kontaktna-sociva"]) == ["kontaktna sociva"]
+
+
+# --------------------------------------------------------------------------
+# Generic-slug stoplist, second pass (2026-07-27)
+# --------------------------------------------------------------------------
+
+
+def test_pricing_and_refund_slugs_are_rejected_as_seeds():
+    """These read as topical and are not.
+
+    /cene/ and /povrat/ are ordinary pages on a Serbian SaaS site, but
+    outside the site that owns them they are bare common nouns. Autocomplete
+    completes the word, not the context: measured on the real API, "cene"
+    returns fuel prices and "povrat" returns a film and a train ticket.
+    Between them they generated all 548 of skedio's demand keywords.
+    """
+    pages = [
+        "https://skedio.rs/cene/",
+        "https://skedio.rs/povrat/",
+        "https://skedio.rs/kontakt/",
+        "https://skedio.rs/o-nama/",
+        "https://skedio.rs/uslovi/",
+        "https://skedio.rs/privatnost/",
+    ]
+    assert seeds_from_pages(pages) == []
+
+
+def test_a_genuine_product_category_slug_still_survives():
+    # The stoplist must not become so broad that a real shop stops working.
+    pages = [
+        "https://optikacajs.rs/naocare-za-sunce",
+        "https://optikacajs.rs/dioptrijski-okviri",
+        "https://optikacajs.rs/kontaktna-sociva",
+        "https://optikacajs.rs/cene",
+    ]
+    seeds = seeds_from_pages(pages)
+    assert "naocare za sunce" in seeds
+    assert "dioptrijski okviri" in seeds
+    assert "kontaktna sociva" in seeds
+    assert "cene" not in seeds

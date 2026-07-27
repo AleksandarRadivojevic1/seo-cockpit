@@ -192,18 +192,42 @@ def _discover(config: Config, slug: str | None) -> int:
     conn = db_module.init_db(config.db_path)
     total = 0
     for site in _sites_for(config, slug):
-        pages = [
-            row[0]
-            for row in conn.execute(
-                "SELECT DISTINCT page FROM page_daily WHERE site = ?", (site.property,)
-            )
-        ]
-        seeds = seeds_from_pages(pages)
+        # Hand-written seeds REPLACE slug derivation rather than adding to
+        # it. Slugs work for shops, whose URLs are product categories, and
+        # fail for SaaS, whose URLs are site sections -- and mixing the two
+        # would let the failing half quietly dominate by volume, which is
+        # exactly what happened to skedio (548 junk keywords from /cene/
+        # and /povrat/ against a handful of real ones).
+        if site.discover_seeds:
+            seeds = list(site.discover_seeds)
+            logger.info("site=%s using %d configured seed(s)", site.slug, len(seeds))
+        else:
+            pages = [
+                row[0]
+                for row in conn.execute(
+                    "SELECT DISTINCT page FROM page_daily WHERE site = ?", (site.property,)
+                )
+            ]
+            seeds = seeds_from_pages(pages)
         if not seeds:
-            logger.info("site=%s no seeds derivable from page_daily yet", site.slug)
+            logger.info(
+                "site=%s no seeds: none derivable from page_daily and none configured "
+                "(add discover_seeds to sites.yaml)",
+                site.slug,
+            )
             continue
         rows = discover(site.property, [AutocompleteSource()], seeds)
         db_module.upsert_demand_keywords(conn, rows)
+        # Drop keywords whose seed is no longer in use. A keyword discovered
+        # from a seed you have since rejected is stale, not history: it was
+        # never a real signal, it was an artefact of a bad question. Without
+        # this, correcting the seeds leaves the old noise in place forever
+        # and re-running discovery only makes the list longer.
+        pruned = db_module.prune_demand_keywords(
+            conn, site.property, AutocompleteSource().name, seeds
+        )
+        if pruned:
+            logger.info("site=%s pruned %d keyword(s) from retired seeds", site.slug, pruned)
         total += len(rows)
         logger.info("site=%s seeds=%d keywords=%d", site.slug, len(seeds), len(rows))
     logger.info("discovery complete: %d keyword rows", total)

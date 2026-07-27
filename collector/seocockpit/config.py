@@ -32,6 +32,19 @@ class Site:
     # government appointment booking, not booking software -- so these are
     # chosen by hand rather than derived, and a site with no good head term
     # simply leaves them empty.
+    # Hand-written seeds for free autocomplete discovery. OPTIONAL, and when
+    # present they REPLACE the slugs derived from page_daily rather than
+    # adding to them.
+    #
+    # Why this has to exist: slug-derived seeds work for shops and fail for
+    # SaaS. An e-commerce site's slugs ARE product categories
+    # (/naocare-za-sunce, /dioptrijski-okviri), so autocomplete expands them
+    # into real demand. A single-product SaaS has only site sections --
+    # pricing, refunds, contact, terms -- and expanding those returns
+    # whatever the wider internet associates with the bare word. Skedio's
+    # /cene/ and /povrat/ produced 548 keywords about fuel prices and a
+    # Serbian film before this existed.
+    discover_seeds: tuple[str, ...] = ()
     trend_seeds: tuple[str, ...] = ()
     # City to request SERPs from, e.g. "Leskovac, Serbia". OPTIONAL.
     #
@@ -94,6 +107,7 @@ def load_config(path: str | Path | None = None) -> Config:
                 slug=slug,
                 display_name=raw_site["display_name"],
                 brand_token=raw_site["brand_token"],
+                discover_seeds=tuple(raw_site.get("discover_seeds") or ()),
                 trend_seeds=tuple(raw_site.get("trend_seeds") or ()),
                 serp_location=raw_site.get("serp_location") or None,
             )

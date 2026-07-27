@@ -438,6 +438,35 @@ def upsert_demand_keywords(conn: sqlite3.Connection, rows: Iterable[Mapping]) ->
     conn.commit()
 
 
+def prune_demand_keywords(
+    conn: sqlite3.Connection, site: str, source: str, seeds: Iterable[str]
+) -> int:
+    """Delete this site's keywords for ``source`` that came from other seeds.
+
+    Returns the number of rows removed.
+
+    A keyword discovered from a seed that has since been rejected is not
+    history worth keeping -- it was never a real signal, it was an artefact
+    of a bad question. Skedio's ``/cene/`` slug produced 265 keywords about
+    fuel prices; leaving those in place after fixing the seeds would mean
+    the correction never actually reaches the dashboard.
+
+    Scoped to one source so a prune of free autocomplete results can never
+    delete metered Trends data, which costs credits to reacquire.
+    """
+    seed_list = list(seeds)
+    if not seed_list:
+        return 0
+    placeholders = ",".join("?" for _ in seed_list)
+    cursor = conn.execute(
+        f"DELETE FROM demand_keywords "
+        f"WHERE site = ? AND source = ? AND (seed IS NULL OR seed NOT IN ({placeholders}))",
+        [site, source, *seed_list],
+    )
+    conn.commit()
+    return cursor.rowcount
+
+
 def insert_serp_check(
     conn: sqlite3.Connection, check: Mapping, results: Iterable[Mapping]
 ) -> None:

@@ -339,6 +339,35 @@ GENERIC_SLUGS = frozenset(
         "contact",
         "terms",
         "privacy",
+        # --- added 2026-07-27, after these produced 548 junk keywords ---
+        #
+        # These read as topical rather than navigational, which is exactly
+        # why they slipped through the first pass. They are not: outside the
+        # site that owns them they are bare common nouns, and autocomplete
+        # completes the word, not the context.
+        #
+        # Measured on the real API:
+        #   "cene"   -> cene goriva / cene goriva u srbiji / cene goriva danas
+        #               (fuel prices, every single completion)
+        #   "povrat" -> povratak zikine dinastije (a film), povratak otpisanih
+        #               (a TV series), povratna karta beograd bar (a train)
+        #
+        # Between them they generated ALL 548 of skedio's demand keywords,
+        # none of which had anything to do with booking software.
+        "cene",
+        "cena",
+        "cenovnik",
+        "povrat",
+        "povracaj",
+        "pricing",
+        "prices",
+        "refund",
+        "refunds",
+        "returns",
+        "dostava",
+        "placanje",
+        "shipping",
+        "delivery",
     }
 )
 

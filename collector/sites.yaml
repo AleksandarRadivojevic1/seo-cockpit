@@ -9,6 +9,25 @@ sites:
     slug: skedio
     display_name: Skedio
     brand_token: skedio
+    # Hand-written because skedio's only page slugs are /cene/ and /povrat/,
+    # which are bare common nouns -- they generated 548 keywords about fuel
+    # prices and a Serbian film before the stoplist caught them.
+    #
+    # Every seed below was validated against live autocomplete on
+    # 2026-07-27; the count is what each actually returned. Ones that
+    # returned government services or non-Serbian results were rejected:
+    #   "online zakazivanje termina" -> pasos, licna karta, viza
+    #   "crm za salon"               -> salon de belleza, salon de coiffure
+    #
+    # Note the vocabulary finding: Serbians search "aplikacija", not
+    # "softver" or "program". "aplikacija za salon" returns 4 keywords;
+    # "softver za salon" and "program za salon lepote" both return zero.
+    discover_seeds:
+      - "aplikacija za zakazivanje"   # 32
+      - "aplikacija za salon"         # 4
+      - "softver za zakazivanje"      # 2
+      - "zakazivanje klijenata"       # 1
+      - "aplikacija za frizere"       # 1
   - property: "https://optikacajs.rs/"
     slug: optika-cajs
     display_name: "Optika Cajs"
