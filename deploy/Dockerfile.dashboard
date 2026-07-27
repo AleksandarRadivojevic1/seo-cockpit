@@ -84,9 +84,11 @@ ENV NODE_ENV=production \
 # build tool: the route prints the live report page, so the browser has to be
 # in the final image.
 #
-# This is the largest single cost in the image (~400MB installed on arm64) and
-# it buys one thing — a real downloaded file instead of the browser's print
-# dialog, which no web API can bypass. Puppeteer/Playwright would vendor a
+# This is the largest single cost in the image and it buys one thing — a real
+# downloaded file instead of the browser's print dialog, which no web API can
+# bypass. MEASURED on arm64 2026-07-27: the image goes 403MB -> 1.37GB, so
+# chromium costs ~970MB, not the ~330MB that `du /usr/lib/chromium` suggests —
+# that number omits the dependency tree (gtk, pango, cairo, mesa, x11). Puppeteer/Playwright would vendor a
 # SECOND copy of the same browser, so the system package is what we drive;
 # lib/report/pdf.ts spawns it directly and needs no npm dependency at all.
 #
