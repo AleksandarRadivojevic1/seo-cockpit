@@ -252,6 +252,142 @@ def _trends(config: Config, slug: str | None, dry_run: bool) -> int:
     return 0
 
 
+# Keywords checked per `serp` run unless --limit says otherwise. Small on
+# purpose: the SerpApi free plan is 250 searches/month and there are ~977
+# candidate gap keywords, so a run that "just checks them all" would spend a
+# month's budget four times over.
+DEFAULT_SERP_LIMIT = 15
+
+
+def _serp(
+    config: Config,
+    slug: str | None,
+    limit: int,
+    keywords_csv: str | None,
+    dry_run: bool,
+) -> int:
+    """METERED SerpApi SERP checks -- 1 credit per keyword. Never scheduled."""
+    import os
+
+    from . import db as db_module
+    from .demand import fold_diacritics
+    from .serp import (
+        SerpApiSearchSource,
+        UnsupportedLocation,
+        own_domain_for,
+        select_gap_keywords,
+        to_rows,
+        validate_location,
+    )
+
+    api_key = os.environ.get("SERPAPI_KEY")
+    if not api_key and not dry_run:
+        raise SystemExit("SERPAPI_KEY is not set (use --dry-run to preview without it)")
+
+    conn = db_module.init_db(config.db_path)
+    sites = _sites_for(config, slug)
+
+    explicit = None
+    if keywords_csv:
+        explicit = [k.strip() for k in keywords_csv.split(",") if k.strip()]
+
+    # Validate every configured location BEFORE planning, let alone spending.
+    # The locations endpoint is free.
+    for site in sites:
+        if site.serp_location:
+            try:
+                canonical = validate_location(site.serp_location)
+            except UnsupportedLocation as e:
+                raise SystemExit(f"site {site.slug}: {e}")
+            if canonical != site.serp_location:
+                logger.info(
+                    "site=%s location %r -> canonical %r",
+                    site.slug,
+                    site.serp_location,
+                    canonical,
+                )
+
+    plan: list[tuple] = []
+    for site in sites:
+        if explicit is not None:
+            chosen = explicit[:limit]
+        else:
+            demand_rows = list(
+                conn.execute(
+                    "SELECT keyword, MIN(suggest_rank), MIN(seed) FROM demand_keywords "
+                    "WHERE site = ? GROUP BY keyword",
+                    (site.property,),
+                )
+            )
+            if not demand_rows:
+                logger.info(
+                    "site=%s no demand keywords yet; run `discover` first", site.slug
+                )
+                continue
+            chosen = select_gap_keywords(
+                demand_rows,
+                db_module.ever_ranked_queries(conn, site.property),
+                fold_diacritics,
+                limit,
+            )
+        if chosen:
+            plan.append((site, chosen))
+
+    planned = sum(len(k) for _, k in plan)
+    if planned == 0:
+        logger.info("nothing to check")
+        return 0
+
+    left = None
+    if api_key:
+        left = SerpApiSearchSource(api_key).searches_left()
+    logger.info(
+        "serp: %d keyword(s) across %d site(s); credits left: %s",
+        planned,
+        len(plan),
+        left if left is not None else "unknown",
+    )
+    # `left` is None when the account endpoint could not be read. Unknown is
+    # not zero, so it must not silently block a legitimate run -- but nor
+    # should an unknown budget be spent unasked, hence the dry-run first.
+    if left is not None and planned > left:
+        raise SystemExit(f"refusing to run: {planned} checks > {left} credits remaining")
+
+    if dry_run:
+        for site, chosen in plan:
+            location = site.serp_location or "country-level"
+            print(f"{site.slug}  ({location})  {len(chosen)} credit(s)")
+            for keyword in chosen:
+                print(f"    {keyword}")
+        print(f"\ntotal: {planned} credit(s); remaining: {left if left is not None else 'unknown'}")
+        return 0
+
+    checked = skipped = 0
+    for site, chosen in plan:
+        source = SerpApiSearchSource(api_key, location=site.serp_location)
+        own_domain = own_domain_for(site.property)
+        for keyword in chosen:
+            check = source.check(keyword, own_domain)
+            if check is None:
+                # Failed lookups write NOTHING: a check row with no results
+                # would read as "nobody ranks for this".
+                skipped += 1
+                continue
+            check_row, result_rows = to_rows(site.property, check)
+            db_module.insert_serp_check(conn, check_row, result_rows)
+            checked += 1
+            logger.info(
+                "site=%s keyword=%r results=%d our_position=%s local_pack=%s",
+                site.slug,
+                keyword,
+                len(check.results),
+                check.our_position if check.our_position is not None else f"not in top {check.depth_checked}",
+                check.local_pack,
+            )
+    logger.info("serp complete: %d checked, %d skipped after errors", checked, skipped)
+    return 0
+
+
 def _serve(config: Config, collect_fn: Callable, scheduler_factory: Callable) -> int:
     logger.info(
         "starting scheduler: daily incremental collection at %02d:%02d",
@@ -309,6 +445,29 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Show which seeds would be queried and the remaining credits, and exit.",
     )
 
+    # Separate from `discover` for the same reason `trends` is: this one
+    # costs money. 1 credit per keyword, 250/month on the free plan.
+    serp_parser = subparsers.add_parser(
+        "serp",
+        help="Check who ranks for the keywords you're missing (METERED, 1 credit/keyword).",
+    )
+    serp_parser.add_argument("--site", help="Limit to one site slug.")
+    serp_parser.add_argument(
+        "--limit",
+        type=int,
+        default=DEFAULT_SERP_LIMIT,
+        help=f"Max keywords per site (default {DEFAULT_SERP_LIMIT}).",
+    )
+    serp_parser.add_argument(
+        "--keywords",
+        help="Comma-separated keywords to check instead of the auto-selected gaps.",
+    )
+    serp_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show exactly which keywords would be checked and the cost, then exit.",
+    )
+
     digest_parser = subparsers.add_parser(
         "digest",
         help="Send the weekly ntfy digest now (also runs automatically Mondays 07:00 UTC).",
@@ -352,6 +511,8 @@ def main(
         return _discover(config, args.site)
     if args.command == "trends":
         return _trends(config, args.site, args.dry_run)
+    if args.command == "serp":
+        return _serp(config, args.site, args.limit, args.keywords, args.dry_run)
     if args.command == "digest":
         return _digest(config, args.dry_run)
 

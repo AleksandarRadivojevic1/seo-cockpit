@@ -148,6 +148,48 @@ CREATE TABLE IF NOT EXISTS demand_keywords (
     PRIMARY KEY (site, keyword, source)
 );
 
+-- One row per SERP we actually looked at (Task 2.5). METERED data: every
+-- row here cost a SerpApi credit, so nothing is ever overwritten --
+-- `checked_at` is in the key and re-checking a keyword adds a snapshot.
+--
+-- THE EXISTENCE OF A ROW MEANS THE CHECK SUCCEEDED. A failed API call
+-- writes nothing at all, because a check with no results would render as
+-- "nobody ranks for this" -- the most misleading thing this feature could
+-- say. "We could not look" must stay indistinguishable from "we have not
+-- looked", never from "we looked and found nothing".
+CREATE TABLE IF NOT EXISTS serp_checks (
+    site          TEXT NOT NULL,
+    keyword       TEXT NOT NULL,
+    checked_at    TEXT NOT NULL,     -- ISO 8601 UTC
+    geo           TEXT NOT NULL,     -- 'rs'
+    language      TEXT NOT NULL,     -- 'sr'
+    location      TEXT,              -- 'Leskovac, Serbia'; NULL = country-level
+    -- How many organic positions we actually examined. WITHOUT THIS,
+    -- `our_position IS NULL` is unfalsifiable: "not in the top 10" and "not
+    -- in the top 100" are completely different facts about a site.
+    depth_checked INTEGER NOT NULL,
+    local_pack    INTEGER,           -- 1/0; NULL only if the response omitted it
+    ads_top       INTEGER,
+    ads_bottom    INTEGER,
+    our_position  INTEGER,           -- NULL = checked, absent within depth_checked
+    PRIMARY KEY (site, keyword, checked_at)
+);
+
+-- One row per organic result. Stores only what SerpApi literally returned:
+-- no is_homepage, no competitor classification, no difficulty score. Those
+-- are judgments that will need revising after seeing real Serbian SERPs,
+-- and revising them must not cost credits -- so they live in the dashboard.
+CREATE TABLE IF NOT EXISTS serp_results (
+    site       TEXT NOT NULL,
+    keyword    TEXT NOT NULL,
+    checked_at TEXT NOT NULL,
+    position   INTEGER NOT NULL,
+    domain     TEXT NOT NULL,
+    url        TEXT NOT NULL,
+    title      TEXT,
+    PRIMARY KEY (site, keyword, checked_at, position)
+);
+
 CREATE INDEX IF NOT EXISTS idx_totals_daily_site_date
     ON totals_daily (site, date);
 
@@ -165,6 +207,12 @@ CREATE INDEX IF NOT EXISTS idx_country_daily_site_date
 
 CREATE INDEX IF NOT EXISTS idx_demand_keywords_site_source
     ON demand_keywords (site, source);
+
+CREATE INDEX IF NOT EXISTS idx_serp_checks_site_keyword
+    ON serp_checks (site, keyword, checked_at);
+
+CREATE INDEX IF NOT EXISTS idx_serp_results_site_keyword
+    ON serp_results (site, keyword, checked_at);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cwv_snapshots_site_url_captured_at
     ON cwv_snapshots (site, url, captured_at);
@@ -388,6 +436,63 @@ def upsert_demand_keywords(conn: sqlite3.Connection, rows: Iterable[Mapping]) ->
         list(rows),
     )
     conn.commit()
+
+
+def insert_serp_check(
+    conn: sqlite3.Connection, check: Mapping, results: Iterable[Mapping]
+) -> None:
+    """Write one successful SERP check and its organic results atomically.
+
+    Both tables are written inside a single transaction, unlike the daily
+    upserts which commit per table. The reason is the invariant this feature
+    rests on: **a serp_checks row means the check succeeded**. If the check
+    row committed and the results insert then failed, the pair would render
+    as "we looked and nobody ranks", which is exactly the false statement the
+    schema is designed to make impossible.
+
+    Callers must not call this for a failed check -- ``SerpApiSearchSource``
+    returns None in that case and there is nothing to write.
+    """
+    with conn:  # BEGIN ... COMMIT, or ROLLBACK on any exception
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO serp_checks (
+                site, keyword, checked_at, geo, language, location,
+                depth_checked, local_pack, ads_top, ads_bottom, our_position
+            )
+            VALUES (
+                :site, :keyword, :checked_at, :geo, :language, :location,
+                :depth_checked, :local_pack, :ads_top, :ads_bottom, :our_position
+            )
+            """,
+            dict(check),
+        )
+        conn.executemany(
+            """
+            INSERT OR REPLACE INTO serp_results (
+                site, keyword, checked_at, position, domain, url, title
+            )
+            VALUES (
+                :site, :keyword, :checked_at, :position, :domain, :url, :title
+            )
+            """,
+            [dict(r) for r in results],
+        )
+
+
+def ever_ranked_queries(conn: sqlite3.Connection, site: str) -> list[str]:
+    """Every query this site has EVER appeared for, across all history.
+
+    Deliberately not windowed: a keyword the site ranked for six months ago
+    is not an undiscovered gap, so the whole history is the right comparison
+    set. Matches the rule the dashboard's demand panel already uses.
+    """
+    return [
+        row[0]
+        for row in conn.execute(
+            "SELECT DISTINCT query FROM query_daily WHERE site = ?", (site,)
+        )
+    ]
 
 
 def upsert_sites(conn: sqlite3.Connection, rows: Iterable[Mapping]) -> None:

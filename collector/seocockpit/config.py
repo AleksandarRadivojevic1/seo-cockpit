@@ -33,6 +33,14 @@ class Site:
     # chosen by hand rather than derived, and a site with no good head term
     # simply leaves them empty.
     trend_seeds: tuple[str, ...] = ()
+    # City to request SERPs from, e.g. "Leskovac, Serbia". OPTIONAL.
+    #
+    # Load-bearing for a local business and wrong for everyone else:
+    # Google's results for "optika" from Leskovac and from Belgrade are not
+    # the same SERP, and a local optician competes with the shops in its own
+    # city. Left unset, checks are country-level (gl/hl only), which is the
+    # right frame for a SaaS with no geography.
+    serp_location: str | None = None
 
 
 @dataclass(frozen=True)
@@ -87,6 +95,7 @@ def load_config(path: str | Path | None = None) -> Config:
                 display_name=raw_site["display_name"],
                 brand_token=raw_site["brand_token"],
                 trend_seeds=tuple(raw_site.get("trend_seeds") or ()),
+                serp_location=raw_site.get("serp_location") or None,
             )
         )
 

@@ -1,0 +1,374 @@
+{
+ "search_metadata": {
+  "id": "6a67371c8c8a7ee9cf10a18e",
+  "status": "Success",
+  "pixel_position_endpoint": "https://serpapi.com/searches/v_tCLjG9nZSxC1U752BK3Q/6a67371c8c8a7ee9cf10a18e.json_with_pixel_position",
+  "created_at": "2026-07-27 10:46:52 UTC",
+  "processed_at": "2026-07-27 10:46:52 UTC",
+  "google_url": "https://www.google.com/search?q=dioptrijski+okviri+akcija&oq=dioptrijski+okviri+akcija&hl=sr&gl=rs&sourceid=chrome&ie=UTF-8",
+  "total_time_taken": 0.65
+ },
+ "search_parameters": {
+  "engine": "google",
+  "q": "dioptrijski okviri akcija",
+  "google_domain": "google.com",
+  "hl": "sr",
+  "gl": "rs",
+  "device": "desktop"
+ },
+ "search_information": {
+  "query_displayed": "dioptrijski okviri akcija",
+  "total_results": 114,
+  "time_taken_displayed": 0.15,
+  "organic_results_state": "Results for exact spelling"
+ },
+ "organic_results": [
+  {
+   "position": 1,
+   "title": "Akcije",
+   "link": "https://online.sanioptik.rs/sr/akcije",
+   "redirect_link": "https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://online.sanioptik.rs/sr/akcije&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQFnoECA0QAQ",
+   "displayed_link": "https://online.sanioptik.rs › akcije",
+   "favicon": "https://serpapi.com/searches/6a67371c8c8a7ee9cf10a18e/images/WaV66OX74TIbV9D7DkrxjCDXcriNhpyj7q0P9pcmktU.png",
+   "snippet": "Akcija. Enni Marco 11.579-18. Dioptrijski okviri. 9999,00. 7999,20 · Enni Marco 43.019-13P Akcija. Enni Marco 43.019-13P. Dioptrijski okviri. 11999,00. 9599,20.",
+   "snippet_highlighted_words": [
+    "Enni Marco 11.579-18. Dioptrijski okviri"
+   ],
+   "about_this_result": {
+    "source": {
+     "description": "Akcija. Enni Marco 11.579-18. Dioptrijski okviri. 9999,00. 7999,20 · Enni Marco 43.019-13P Akcija. Enni Marco 43.019-13P. Dioptrijski okviri. 11999,00. 9599,20.",
+     "source_info_link": "https://online.sanioptik.rs/sr/akcije",
+     "icon": "https://serpapi.com/searches/6a67371c8c8a7ee9cf10a18e/images/WaV66OX74TIbV9D7DkrxjKtZ-AWGl524kDuD2Wuedf3A1iNH4EWKrRYahmh2vGQJ.png"
+    },
+    "languages": [
+     "sr"
+    ],
+    "regions": [
+     "RS"
+    ]
+   },
+   "about_page_link": "https://www.google.com/search?q=About+https://online.sanioptik.rs/sr/akcije&tbm=ilp",
+   "about_page_serpapi_link": "https://serpapi.com/search.json?engine=google_about_this_result&google_domain=google.com&q=About+https%3A%2F%2Fonline.sanioptik.rs%2Fsr%2Fakcije",
+   "source": "Sani Optik online shop"
+  },
+  {
+   "position": 2,
+   "title": "Dioptrijski okviri",
+   "link": "https://oculusoptika.rs/kategorija/naocare/dioptrijski-okviri/",
+   "redirect_link": "https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://oculusoptika.rs/kategorija/naocare/dioptrijski-okviri/&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQFnoECBoQAQ",
+   "displayed_link": "https://oculusoptika.rs › Naočare",
+   "favicon": "https://serpapi.com/images/i/iVBORw0KGgoAAAANSUhEUgAAACAAAAAQBAMAAACFLmBqAAAAMFBMVEVHcEwBn9gBn9gBn9gBn9gBn9gBn9gBn9gBn9gBn9gBn9gBn9gBn9gBn9gBn9gBn9h5vJKsAAAAEHRSTlMAB2Gumoo3xP8WKdLv5FJy5gghrgAAAKVJREFUeAFjAAMhY9cQY0UGOEhvncDAwBlRBuOvboHQHrsgNEtHAoTB1uEAojhPXIQplemZACRf9DI8Aol_ABI3-hgY-DsusJxxmCggtoGRcQJPxweGiB4BDsG-7otdRSEaDYwnWsECDO0JB04VhbwJAAqAtLAXl9RfOVW3V7URqAVsqIuA0-JEBVeWDyBDGbhOXIBZy9MzAd1hGE6Hgmwkz2F4HwBNFTnSUMIKeAAAAABJRU5ErkJggg.png",
+   "snippet": "CCS by Coco Song 270 02. 24.500,00 RSD. PDV uračunat u cenu i nema skrivenih troškova. Dodaj u korpu · CCS by Coco Song 270 01. 24.500,00 RSD.",
+   "snippet_highlighted_words": [
+    "CCS by Coco Song 270 02. 24.500,00 RSD"
+   ],
+   "about_this_result": {
+    "source": {
+     "description": "CCS by Coco Song 270 02. 24.500,00 RSD. PDV uračunat u cenu i nema skrivenih troškova. Dodaj u korpu · CCS by Coco Song 270 01. 24.500,00 RSD.",
+     "source_info_link": "https://oculusoptika.rs/kategorija/naocare/dioptrijski-okviri/",
+     "icon": "https://serpapi.com/images/i/iVBORw0KGgoAAAANSUhEUgAAACAAAAAQBAMAAACFLmBqAAAAMFBMVEVHcEwBn9gBn9gBn9gBn9gBn9gBn9gBn9gBn9gBn9gBn9gBn9gBn9gBn9gBn9gBn9h5vJKsAAAAEHRSTlMAB2Gumoo3xP8WKdLv5FJy5gghrgAAAKVJREFUeAFjAAMhY9cQY0UGOEhvncDAwBlRBuOvboHQHrsgNEtHAoTB1uEAojhPXIQplemZACRf9DI8Aol_ABI3-hgY-DsusJxxmCggtoGRcQJPxweGiB4BDsG-7otdRSEaDYwnWsECDO0JB04VhbwJAAqAtLAXl9RfOVW3V7URqAVsqIuA0-JEBVeWDyBDGbhOXIBZy9MzAd1hGE6Hgmwkz2F4HwBNFTnSUMIKeAAAAABJRU5ErkJggg.png"
+    },
+    "languages": [
+     "sr"
+    ],
+    "regions": [
+     "RS"
+    ]
+   },
+   "about_page_link": "https://www.google.com/search?q=About+https://oculusoptika.rs/kategorija/naocare/dioptrijski-okviri/&tbm=ilp",
+   "about_page_serpapi_link": "https://serpapi.com/search.json?engine=google_about_this_result&google_domain=google.com&q=About+https%3A%2F%2Foculusoptika.rs%2Fkategorija%2Fnaocare%2Fdioptrijski-okviri%2F",
+   "source": "Oculus Optika"
+  },
+  {
+   "position": 3,
+   "title": "Cvikeri.com: Naočare | Online optika",
+   "link": "https://www.cvikeri.com/",
+   "redirect_link": "https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://www.cvikeri.com/&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQFnoECCEQAQ",
+   "displayed_link": "https://www.cvikeri.com",
+   "favicon": "https://serpapi.com/images/i/iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAAAAABXZoBIAAAAaElEQVR4AWP4jwfQWPLxHhSw-zGSZBWHEgpg2I2QXCBtYmKMDBT2ICRNjE3UUQA_kk4FY_UFGM5BSCodwS85KqmXe-IIMkCKslA9Ez0FZIAcZZcZ9ExQgBI0yiCyPhz8yACmEwcYKEkA7oaKS2DUB2YAAAAASUVORK5CYII.png",
+   "snippet": "Popusti po brendovima: Missoni: Sunčane naočare 40%; Etnia Barcelona: Sunčane naočare 30%, Dioptrijski okviri 10%; David Beckham: Sunčane naočare 30%, ...",
+   "snippet_highlighted_words": [
+    "Dioptrijski okviri 10"
+   ],
+   "about_this_result": {
+    "source": {
+     "description": "Popusti po brendovima: Missoni: Sunčane naočare 40%; Etnia Barcelona: Sunčane naočare 30%, Dioptrijski okviri 10%; David Beckham: Sunčane naočare 30%, ...",
+     "source_info_link": "https://www.cvikeri.com/",
+     "icon": "https://serpapi.com/images/i/iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAAAAABXZoBIAAAAaElEQVR4AWP4jwfQWPLxHhSw-zGSZBWHEgpg2I2QXCBtYmKMDBT2ICRNjE3UUQA_kk4FY_UFGM5BSCodwS85KqmXe-IIMkCKslA9Ez0FZIAcZZcZ9ExQgBI0yiCyPhz8yACmEwcYKEkA7oaKS2DUB2YAAAAASUVORK5CYII.png"
+    },
+    "languages": [
+     "sr"
+    ],
+    "regions": [
+     "RS"
+    ]
+   },
+   "about_page_link": "https://www.google.com/search?q=About+https://www.cvikeri.com/&tbm=ilp",
+   "about_page_serpapi_link": "https://serpapi.com/search.json?engine=google_about_this_result&google_domain=google.com&q=About+https%3A%2F%2Fwww.cvikeri.com%2F",
+   "source": "Cvikeri"
+  },
+  {
+   "position": 4,
+   "title": "Diopta HIT ponuda",
+   "link": "https://diopta.rs/diopta-snizenje/",
+   "redirect_link": "https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://diopta.rs/diopta-snizenje/&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQFnoECCQQAQ",
+   "displayed_link": "https://diopta.rs › diopta-snizenje",
+   "snippet": "Savršena prilika za nove naočare za SAMO 3.780 dinara! DIOPTA HIT PONUDA – idealno rešenje za sve koji su u potrazi za novim dioptrijskim naočarama.",
+   "snippet_highlighted_words": [
+    "3"
+   ],
+   "about_this_result": {
+    "source": {
+     "description": "Savršena prilika za nove naočare za SAMO 3.780 dinara! DIOPTA HIT PONUDA – idealno rešenje za sve koji su u potrazi za novim dioptrijskim naočarama.",
+     "source_info_link": "https://diopta.rs/diopta-snizenje/"
+    },
+    "languages": [
+     "sr"
+    ],
+    "regions": [
+     "RS"
+    ]
+   },
+   "about_page_link": "https://www.google.com/search?q=About+https://diopta.rs/diopta-snizenje/&tbm=ilp",
+   "about_page_serpapi_link": "https://serpapi.com/search.json?engine=google_about_this_result&google_domain=google.com&q=About+https%3A%2F%2Fdiopta.rs%2Fdiopta-snizenje%2F",
+   "source": "Diopta"
+  },
+  {
+   "position": 5,
+   "title": "Dioptrijski okviri",
+   "link": "https://online.sanioptik.rs/sr/dioptrijski-okviri",
+   "redirect_link": "https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://online.sanioptik.rs/sr/dioptrijski-okviri&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQFnoECCUQAQ",
+   "displayed_link": "https://online.sanioptik.rs › dioptrijski-okviri",
+   "favicon": "https://serpapi.com/searches/6a67371c8c8a7ee9cf10a18e/images/WaV66OX74TIbV9D7DkrxjPHar7dM7k9rGzW7BKJdSis.png",
+   "snippet": "Dioptrijski okvir. 26999,00. 21599,20 · Mont Blanc 0.053-003 Akcija. Mont Blanc 0.053-003. Dioptrijski okvir. 26999,00. 21599,20 · Mont Blanc 0.053-004 Akcija ...",
+   "snippet_highlighted_words": [
+    "Dioptrijski okvir. 26999,00. 21599,20"
+   ],
+   "about_this_result": {
+    "source": {
+     "description": "Dioptrijski okvir. 26999,00. 21599,20 · Mont Blanc 0.053-003 Akcija. Mont Blanc 0.053-003. Dioptrijski okvir. 26999,00. 21599,20 · Mont Blanc 0.053-004 Akcija ...",
+     "source_info_link": "https://online.sanioptik.rs/sr/dioptrijski-okviri",
+     "icon": "https://serpapi.com/searches/6a67371c8c8a7ee9cf10a18e/images/WaV66OX74TIbV9D7DkrxjGiGEgDqQk2XNJPqvatiLZxMeGnCu6b20Df1eb9AYVF_.png"
+    },
+    "languages": [
+     "sr"
+    ],
+    "regions": [
+     "RS"
+    ]
+   },
+   "about_page_link": "https://www.google.com/search?q=About+https://online.sanioptik.rs/sr/dioptrijski-okviri&tbm=ilp",
+   "about_page_serpapi_link": "https://serpapi.com/search.json?engine=google_about_this_result&google_domain=google.com&q=About+https%3A%2F%2Fonline.sanioptik.rs%2Fsr%2Fdioptrijski-okviri",
+   "source": "Sani Optik online shop"
+  },
+  {
+   "position": 6,
+   "title": "Dioptrijski okvir jeftini Dioptrijske naocare akcija Očna kuća ...",
+   "link": "https://ocnakucajevtic.rs/product-category/dioptrijski-okviri/",
+   "redirect_link": "https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://ocnakucajevtic.rs/product-category/dioptrijski-okviri/&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQFnoECCMQAQ",
+   "displayed_link": "https://ocnakucajevtic.rs › product-category › dioptrijsk...",
+   "favicon": "https://serpapi.com/images/i/iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y-mAAAAq1BMVEVHcEy0Lh7zPB3-Iw76JQ_6JhD2IA79GQj-GQj-GAj-Nhj_TCT9YS_9PRv8USf-FQb-Fwf_LhP3Xi_-Fwj-EwX_IQ3_MhT_RyD_XSz-EAT-FAb-Fgf_Gwn8Fwj_bTX7f0D-EwX-FAb_bDQjKy0hKy0mKy0nLC37g0EzLCooLS5ILSr5fD3-ez3xFQlIMSwlKy0rLC0rLC0pKy39FQcpLC0vLy7_FAUpKSsoKy2oBuf7AAAAOXRSTlMAAwwSGiMsT3qKr5l-Ngc7qMRamvT__v-35dnKYlivHv9t5jpOjnczB2MlRJEyFKb2_7xH2y-7DepcpwrQAAABpUlEQVR4AY3PhZajMBSA4RsDUgGGUE0lLEFncZm-_5Nthq77f_SeLwr_F8KEUsYYpRj_gtiyHb5ardab7fYHcJFnxH9ZWq3XQYDd79gR4c603-8PpuOafDmaMC5OZ-nzy3X7XhAcb7fg7j6R-lKps4g8a5mZdTx-2CyILR4qdbUxNlOskzTVMaBgc8swuNQW4elk2x7DOdJFkiRpUZavwcfsDsw-hYpfcOVf67JsmrYz9Qncs9dXGCKz72o5Dh_yutY6bca2G3s93bMMIq5OksF5djxACOCt6M3mR6PNXrAdNUdDpaRFYSkuxq5rH2mNXRgc5dv2oCQhT5y0wa5N6hyAeGdecRHO4H6PXRO_vaN0DKoZ4TxHAChOF0wmg0Ciqyd8JfNyqs1cp2NrTn0eC3iomNkpaVkWqS7S_mHw0Rc5MogIIY5QZ6sqm7FfyGCiYQkhGGx18q9QpO3TmqSs4Uuep8L5Crow8ESUw7f8WUlBAWqti3iCHzM_lb7H6lJr_QsCE3InXxiF34SIHQkh7IFRF_3GaeVw7thb8jt0MTURjOC_-gQktjVsyWohfQAAAABJRU5ErkJggg.png",
+   "snippet": "Veliki izbor dioptrijskih okvira različitih materijala : metalni dioptrijski okviri, plastični dioptrijski okviri, titanijumski dioptrijski okviri. Naočare.",
+   "snippet_highlighted_words": [
+    "Veliki izbor dioptrijskih okvira različitih materijala"
+   ],
+   "about_this_result": {
+    "source": {
+     "description": "Veliki izbor dioptrijskih okvira različitih materijala : metalni dioptrijski okviri, plastični dioptrijski okviri, titanijumski dioptrijski okviri. Naočare.",
+     "source_info_link": "https://ocnakucajevtic.rs/product-category/dioptrijski-okviri/",
+     "icon": "https://serpapi.com/images/i/iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y-mAAAAq1BMVEVHcEy0Lh7zPB3-Iw76JQ_6JhD2IA79GQj-GQj-GAj-Nhj_TCT9YS_9PRv8USf-FQb-Fwf_LhP3Xi_-Fwj-EwX_IQ3_MhT_RyD_XSz-EAT-FAb-Fgf_Gwn8Fwj_bTX7f0D-EwX-FAb_bDQjKy0hKy0mKy0nLC37g0EzLCooLS5ILSr5fD3-ez3xFQlIMSwlKy0rLC0rLC0pKy39FQcpLC0vLy7_FAUpKSsoKy2oBuf7AAAAOXRSTlMAAwwSGiMsT3qKr5l-Ngc7qMRamvT__v-35dnKYlivHv9t5jpOjnczB2MlRJEyFKb2_7xH2y-7DepcpwrQAAABpUlEQVR4AY3PhZajMBSA4RsDUgGGUE0lLEFncZm-_5Nthq77f_SeLwr_F8KEUsYYpRj_gtiyHb5ardab7fYHcJFnxH9ZWq3XQYDd79gR4c603-8PpuOafDmaMC5OZ-nzy3X7XhAcb7fg7j6R-lKps4g8a5mZdTx-2CyILR4qdbUxNlOskzTVMaBgc8swuNQW4elk2x7DOdJFkiRpUZavwcfsDsw-hYpfcOVf67JsmrYz9Qncs9dXGCKz72o5Dh_yutY6bca2G3s93bMMIq5OksF5djxACOCt6M3mR6PNXrAdNUdDpaRFYSkuxq5rH2mNXRgc5dv2oCQhT5y0wa5N6hyAeGdecRHO4H6PXRO_vaN0DKoZ4TxHAChOF0wmg0Ciqyd8JfNyqs1cp2NrTn0eC3iomNkpaVkWqS7S_mHw0Rc5MogIIY5QZ6sqm7FfyGCiYQkhGGx18q9QpO3TmqSs4Uuep8L5Crow8ESUw7f8WUlBAWqti3iCHzM_lb7H6lJr_QsCE3InXxiF34SIHQkh7IFRF_3GaeVw7thb8jt0MTURjOC_-gQktjVsyWohfQAAAABJRU5ErkJggg.png"
+    },
+    "languages": [
+     "sr"
+    ],
+    "regions": [
+     "RS"
+    ]
+   },
+   "about_page_link": "https://www.google.com/search?q=About+https://ocnakucajevtic.rs/product-category/dioptrijski-okviri/&tbm=ilp",
+   "about_page_serpapi_link": "https://serpapi.com/search.json?engine=google_about_this_result&google_domain=google.com&q=About+https%3A%2F%2Focnakucajevtic.rs%2Fproduct-category%2Fdioptrijski-okviri%2F",
+   "source": "ocnakucajevtic.rs"
+  },
+  {
+   "position": 7,
+   "title": "Dioptrijski Okviri za naočare - AKCIJA",
+   "link": "https://lepsipogled.rs/c/okviri-za-naocare/akcija/",
+   "redirect_link": "https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://lepsipogled.rs/c/okviri-za-naocare/akcija/&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQFnoECCYQAQ",
+   "displayed_link": "https://lepsipogled.rs › okviri-za-naocare › akcija",
+   "favicon": "https://serpapi.com/images/i/iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAAjVBMVEX____W1tfq6urz8_MAAADi4uL4-PiYmJigoKB0dHRgYWFHR0h_f4CFhYU3NzdSUlKtrq3x8fH8_PwnJydbW1ssLi29vb1ra2s7PDvb29vDw8Onp6eUlJS4uLjt7e3MzMxwcXAeHh4GBwn_8Nn_7dD8zIn7rzD7wGf7sj37tUj_58bQ1Nn_9eX-xXT9yoLpWqb3AAABIklEQVR4AWKgOmBkwi_PDCiPLg4kh6EggJbtkszMoGam_MNb7aCaIph3E36iwFsSgEu85fkAghBaJPAMcQIgTAFkzPGocAqfuSzKqpCyrvCoicgWHdn3ZNl7eNSFJIuBHCU59c-ljp5Hxoi9HkrlMwdPBjRKb0vbnhXoGWZ4kM0g51PKVrVhuJiWXA0w5YNIqSmsNxAhMK-5MIus25KawHa320NAi2kU23ouVyuO2B6Ox93pbEHzOP58MMfHBeuyO2r7c_ZZmjk4l1xxfjnoHw7Xs_rYiqbcvKAti8ttf7zClkBfcgTMC8OCrC1oVgtnIue4v5Agz0IyjeplEJMLBw8XmEwShRAzB4Jtjwe6CpLR0A9WM04Onkw0JHhmW4Yef88_K0ATa4wVaCEAAAAASUVORK5CYII.png",
+   "snippet": "Pogledajte aktuelna sniženja za dioptrijske okvire za naočare. Uštedite i do 8.000 dinara.",
+   "about_this_result": {
+    "source": {
+     "description": "Pogledajte aktuelna sniženja za dioptrijske okvire za naočare. Uštedite i do 8.000 dinara.",
+     "source_info_link": "https://lepsipogled.rs/c/okviri-za-naocare/akcija/",
+     "icon": "https://serpapi.com/images/i/iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAAjVBMVEX____W1tfq6urz8_MAAADi4uL4-PiYmJigoKB0dHRgYWFHR0h_f4CFhYU3NzdSUlKtrq3x8fH8_PwnJydbW1ssLi29vb1ra2s7PDvb29vDw8Onp6eUlJS4uLjt7e3MzMxwcXAeHh4GBwn_8Nn_7dD8zIn7rzD7wGf7sj37tUj_58bQ1Nn_9eX-xXT9yoLpWqb3AAABIklEQVR4AWKgOmBkwi_PDCiPLg4kh6EggJbtkszMoGam_MNb7aCaIph3E36iwFsSgEu85fkAghBaJPAMcQIgTAFkzPGocAqfuSzKqpCyrvCoicgWHdn3ZNl7eNSFJIuBHCU59c-ljp5Hxoi9HkrlMwdPBjRKb0vbnhXoGWZ4kM0g51PKVrVhuJiWXA0w5YNIqSmsNxAhMK-5MIus25KawHa320NAi2kU23ouVyuO2B6Ox93pbEHzOP58MMfHBeuyO2r7c_ZZmjk4l1xxfjnoHw7Xs_rYiqbcvKAti8ttf7zClkBfcgTMC8OCrC1oVgtnIue4v5Agz0IyjeplEJMLBw8XmEwShRAzB4Jtjwe6CpLR0A9WM04Onkw0JHhmW4Yef88_K0ATa4wVaCEAAAAASUVORK5CYII.png"
+    },
+    "languages": [
+     "sr"
+    ],
+    "regions": [
+     "RS"
+    ]
+   },
+   "about_page_link": "https://www.google.com/search?q=About+https://lepsipogled.rs/c/okviri-za-naocare/akcija/&tbm=ilp",
+   "about_page_serpapi_link": "https://serpapi.com/search.json?engine=google_about_this_result&google_domain=google.com&q=About+https%3A%2F%2Flepsipogled.rs%2Fc%2Fokviri-za-naocare%2Fakcija%2F",
+   "source": "lepsipogled.rs"
+  },
+  {
+   "position": 8,
+   "title": "AKCIJA 3.500,00 rsd 🏷️ dioptrijski okvir i stakla CR39, u ...",
+   "link": "https://www.instagram.com/reel/DPBoOmxDSnt/",
+   "displayed_link": "Више од 30 свиђања · пре 10 месеци",
+   "thumbnail": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSCGPR_hdzorJaycRnlbQg4wUmsioAnmD9OjEwaUIE6rsztRfmKdPteLA&s",
+   "favicon": "https://serpapi.com/searches/6a67371c8c8a7ee9cf10a18e/images/WaV66OX74TIbV9D7DkrxjHU7KaadzPB3QMftAPWkpDk.png",
+   "snippet": "❗AKCIJA ❗ još samo do 15.7. 3.500,00 rsd 🏷️ dioptrijski okvir i stakla CR39, u Vašoj dioptriji. ⚠️ Cena 3500din je za ram i dioptrijska stakla ...",
+   "duration": "0:25",
+   "about_this_result": {
+    "source": {
+     "description": "❗AKCIJA ❗ još samo do 15.7. 3.500,00 rsd 🏷️ dioptrijski okvir i stakla CR39, u Vašoj dioptriji. ⚠️ Cena 3500din je za ram i dioptrijska stakla ...",
+     "icon": "https://serpapi.com/searches/6a67371c8c8a7ee9cf10a18e/images/WaV66OX74TIbV9D7DkrxjBWagnD24vj4bW_vQgA6TKQ-ziSdv-S_xfM82rq0mS2l.png"
+    }
+   },
+   "about_page_link": "https://www.google.com/search?q=About+https://www.instagram.com/reel/DPBoOmxDSnt/&tbm=ilp",
+   "about_page_serpapi_link": "https://serpapi.com/search.json?engine=google_about_this_result&google_domain=google.com&q=About+https%3A%2F%2Fwww.instagram.com%2Freel%2FDPBoOmxDSnt%2F",
+   "source": "Instagram · optika_occhiali"
+  },
+  {
+   "position": 9,
+   "title": "Dioptrijski okviri - Naočare",
+   "link": "https://www.kupujemprodajem.com/asesoari/naocare-dioptrijski-okviri/grupa/863/1335/1",
+   "redirect_link": "https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://www.kupujemprodajem.com/asesoari/naocare-dioptrijski-okviri/grupa/863/1335/1&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQFnoECCAQAQ",
+   "displayed_link": "https://www.kupujemprodajem.com › Asesoari",
+   "favicon": "https://serpapi.com/images/i/iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y-mAAAAnFBMVEX______Pr_2NP_6eb_DAD_FAD_HQD3-fvi6e__5OH_UD3_SDT_w7uht8oyVH87WoO_y9lvhaIaQXEUPW9NaY3Q2eL_b2L_ZFeRorcAI2AALmUAKGIAMGYAJmHx9Pf_n5X_OCMAM2idrsH_LQ__083_DwB_lK7_Mxv_WkqKnbUAHF3_9PLo7PH_p57_sqtiepqyv87_hHj_lYj_aFJbROHSAAAA80lEQVR4AbTQBWLDMBAEwEsjMDMK3BjD_P-_9VxmzhqlEcPFMrnCfIRTQin7GBn7G04wwDkHMAz-Ck3Lsh3X870gjOIkfYGTjJAcilKIRAqlveo5XhM6M6GQdS2lqOuyecK2Y6x3YESRGIPG9xPOF5TmcIvlEtJVrSL-NCzF3usH3CCK6gkxZPuAVYkzb56wxc6L9bOe6qkn2eZ0XBGiHsY5xfM5YUcYyUYUfhrKWu7hGU5nOLaJWAsx7vPwgLSnAEdCyanRtfJqPKGE36NlWQuAzras8zjnsonFfgNvg1gWT8WfYKk-xqaObyaDUxKSEigHANY_GI0brAwyAAAAAElFTkSuQmCC.png",
+   "snippet": "Vogue VO4178 Original Akcija. Beograd. 13. 1. juče. 70 €. Silhouette dioptrijski ram 140mm xxxw.",
+   "snippet_highlighted_words": [
+    "Vogue VO4178 Original Akcija"
+   ],
+   "about_this_result": {
+    "source": {
+     "description": "Vogue VO4178 Original Akcija. Beograd. 13. 1. juče. 70 €. Silhouette dioptrijski ram 140mm xxxw.",
+     "source_info_link": "https://www.kupujemprodajem.com/asesoari/naocare-dioptrijski-okviri/grupa/863/1335/1",
+     "icon": "https://serpapi.com/images/i/iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y-mAAAAnFBMVEX______Pr_2NP_6eb_DAD_FAD_HQD3-fvi6e__5OH_UD3_SDT_w7uht8oyVH87WoO_y9lvhaIaQXEUPW9NaY3Q2eL_b2L_ZFeRorcAI2AALmUAKGIAMGYAJmHx9Pf_n5X_OCMAM2idrsH_LQ__083_DwB_lK7_Mxv_WkqKnbUAHF3_9PLo7PH_p57_sqtiepqyv87_hHj_lYj_aFJbROHSAAAA80lEQVR4AbTQBWLDMBAEwEsjMDMK3BjD_P-_9VxmzhqlEcPFMrnCfIRTQin7GBn7G04wwDkHMAz-Ck3Lsh3X870gjOIkfYGTjJAcilKIRAqlveo5XhM6M6GQdS2lqOuyecK2Y6x3YESRGIPG9xPOF5TmcIvlEtJVrSL-NCzF3usH3CCK6gkxZPuAVYkzb56wxc6L9bOe6qkn2eZ0XBGiHsY5xfM5YUcYyUYUfhrKWu7hGU5nOLaJWAsx7vPwgLSnAEdCyanRtfJqPKGE36NlWQuAzras8zjnsonFfgNvg1gWT8WfYKk-xqaObyaDUxKSEigHANY_GI0brAwyAAAAAElFTkSuQmCC.png"
+    },
+    "languages": [
+     "sr"
+    ],
+    "regions": [
+     "RS"
+    ]
+   },
+   "about_page_link": "https://www.google.com/search?q=About+https://www.kupujemprodajem.com/asesoari/naocare-dioptrijski-okviri/grupa/863/1335/1&tbm=ilp",
+   "about_page_serpapi_link": "https://serpapi.com/search.json?engine=google_about_this_result&google_domain=google.com&q=About+https%3A%2F%2Fwww.kupujemprodajem.com%2Fasesoari%2Fnaocare-dioptrijski-okviri%2Fgrupa%2F863%2F1335%2F1",
+   "source": "KupujemProdajem"
+  },
+  {
+   "position": 10,
+   "title": "Oko Plus Optika: Početna",
+   "link": "https://okoplusoptika.rs/",
+   "redirect_link": "https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://okoplusoptika.rs/&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQFnoECCIQAQ",
+   "displayed_link": "https://okoplusoptika.rs",
+   "favicon": "https://serpapi.com/images/i/iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y-mAAAAJ1BMVEVHcEzkFBjlHh3kERbkGBrjDRXjDBXkERfjDRXlIB7kEBbkFBjjBhM3j7z7AAAADHRSTlMAYiyEPtHhdLkdm1Rff7XbAAAAdUlEQVQokdVRSRLAIAhTUFz__95OFSzS5d6cCBGSQef-CvApeXhSQu6MHIxUYleIRWutG_hL89xCAJRy2XFjZAEzy7ROVplOX8nSdv-oB2WRBKDNcj5di4IJe5JbXGkQIu3p9OxC2s5HWiJ7_Y_DD7x_2S9wALEQCeMUSvW_AAAAAElFTkSuQmCC.png",
+   "snippet": "Akcijski program. najpovoljniji dioptrijski okviri u gradu!!! besplatno utvrđivanje dioptrije, futrola i krpica ; Sve na jednom mestu. Utvrđivanje dioptrije ( ...",
+   "snippet_highlighted_words": [
+    "najpovoljniji dioptrijski okviri u gradu"
+   ],
+   "about_this_result": {
+    "source": {
+     "description": "Akcijski program. najpovoljniji dioptrijski okviri u gradu!!! besplatno utvrđivanje dioptrije, futrola i krpica ; Sve na jednom mestu. Utvrđivanje dioptrije ( ...",
+     "source_info_link": "https://okoplusoptika.rs/",
+     "icon": "https://serpapi.com/images/i/iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y-mAAAAJ1BMVEVHcEzkFBjlHh3kERbkGBrjDRXjDBXkERfjDRXlIB7kEBbkFBjjBhM3j7z7AAAADHRSTlMAYiyEPtHhdLkdm1Rff7XbAAAAdUlEQVQokdVRSRLAIAhTUFz__95OFSzS5d6cCBGSQef-CvApeXhSQu6MHIxUYleIRWutG_hL89xCAJRy2XFjZAEzy7ROVplOX8nSdv-oB2WRBKDNcj5di4IJe5JbXGkQIu3p9OxC2s5HWiJ7_Y_DD7x_2S9wALEQCeMUSvW_AAAAAElFTkSuQmCC.png"
+    },
+    "languages": [
+     "sr"
+    ],
+    "regions": [
+     "RS"
+    ]
+   },
+   "about_page_link": "https://www.google.com/search?q=About+https://okoplusoptika.rs/&tbm=ilp",
+   "about_page_serpapi_link": "https://serpapi.com/search.json?engine=google_about_this_result&google_domain=google.com&q=About+https%3A%2F%2Fokoplusoptika.rs%2F",
+   "source": "Oko Plus Optika"
+  }
+ ],
+ "related_searches": [
+  {
+   "block_position": 1,
+   "query": "Zenski okviri za naocare cena",
+   "link": "https://www.google.com/search?sca_esv=e7de700c2700d61a&hl=sr&gl=rs&q=Zenski+okviri+za+naocare+cena&sa=X&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQ1QJ6BAgfEAE",
+   "serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=Zenski+okviri+za+naocare+cena"
+  },
+  {
+   "block_position": 1,
+   "query": "Najmoderniji okviri za naocare",
+   "link": "https://www.google.com/search?sca_esv=e7de700c2700d61a&hl=sr&gl=rs&q=Najmoderniji+okviri+za+naocare&sa=X&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQ1QJ6BAg7EAE",
+   "serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=Najmoderniji+okviri+za+naocare"
+  },
+  {
+   "block_position": 1,
+   "query": "Italijanski okviri za naocare",
+   "link": "https://www.google.com/search?sca_esv=e7de700c2700d61a&hl=sr&gl=rs&q=Italijanski+okviri+za+naocare&sa=X&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQ1QJ6BAg8EAE",
+   "serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=Italijanski+okviri+za+naocare"
+  },
+  {
+   "block_position": 1,
+   "query": "Najjeftiniji okviri za naocare",
+   "link": "https://www.google.com/search?sca_esv=e7de700c2700d61a&hl=sr&gl=rs&q=Najjeftiniji+okviri+za+naocare&sa=X&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQ1QJ6BAg5EAE",
+   "serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=Najjeftiniji+okviri+za+naocare"
+  },
+  {
+   "block_position": 1,
+   "query": "Muski okviri za naocare",
+   "link": "https://www.google.com/search?sca_esv=e7de700c2700d61a&hl=sr&gl=rs&q=Muski+okviri+za+naocare&sa=X&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQ1QJ6BAgwEAE",
+   "serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=Muski+okviri+za+naocare"
+  },
+  {
+   "block_position": 1,
+   "query": "Najkvalitetniji okviri za naocare",
+   "link": "https://www.google.com/search?sca_esv=e7de700c2700d61a&hl=sr&gl=rs&q=Najkvalitetniji+okviri+za+naocare&sa=X&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQ1QJ6BAgpEAE",
+   "serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=Najkvalitetniji+okviri+za+naocare"
+  },
+  {
+   "block_position": 1,
+   "query": "Brendirani okviri za naocare",
+   "link": "https://www.google.com/search?sca_esv=e7de700c2700d61a&hl=sr&gl=rs&q=Brendirani+okviri+za+naocare&sa=X&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQ1QJ6BAgoEAE",
+   "serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=Brendirani+okviri+za+naocare"
+  },
+  {
+   "block_position": 1,
+   "query": "Naočare za vid akcija",
+   "link": "https://www.google.com/search?sca_esv=e7de700c2700d61a&hl=sr&gl=rs&q=Nao%C4%8Dare+za+vid+akcija&sa=X&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQ1QJ6BAgnEAE",
+   "serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=Nao%C4%8Dare+za+vid+akcija"
+  }
+ ],
+ "pagination": {
+  "current": 1,
+  "next": "https://www.google.com/search?q=dioptrijski+okviri+akcija&sca_esv=e7de700c2700d61a&hl=sr&gl=rs&ei=HDdnasekM-OHwbkPweHpqA4&start=10&sa=N&sstk=AU9db-BxmflnHiPU3R9eJFi2yA_tZ0-8Y7hpG_EsYyyvetxLi36HHTnRns1KI-yKmL61H4kKnBHF0sQqCVvAqqny_vBFIdotwg0RvQ&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQ8NMDegQIOhAW",
+  "other_pages": {
+   "2": "https://www.google.com/search?q=dioptrijski+okviri+akcija&sca_esv=e7de700c2700d61a&hl=sr&gl=rs&ei=HDdnasekM-OHwbkPweHpqA4&start=10&sa=N&sstk=AU9db-BxmflnHiPU3R9eJFi2yA_tZ0-8Y7hpG_EsYyyvetxLi36HHTnRns1KI-yKmL61H4kKnBHF0sQqCVvAqqny_vBFIdotwg0RvQ&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQ8tMDegQIOhAE",
+   "3": "https://www.google.com/search?q=dioptrijski+okviri+akcija&sca_esv=e7de700c2700d61a&hl=sr&gl=rs&ei=HDdnasekM-OHwbkPweHpqA4&start=20&sa=N&sstk=AU9db-BxmflnHiPU3R9eJFi2yA_tZ0-8Y7hpG_EsYyyvetxLi36HHTnRns1KI-yKmL61H4kKnBHF0sQqCVvAqqny_vBFIdotwg0RvQ&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQ8tMDegQIOhAG",
+   "4": "https://www.google.com/search?q=dioptrijski+okviri+akcija&sca_esv=e7de700c2700d61a&hl=sr&gl=rs&ei=HDdnasekM-OHwbkPweHpqA4&start=30&sa=N&sstk=AU9db-BxmflnHiPU3R9eJFi2yA_tZ0-8Y7hpG_EsYyyvetxLi36HHTnRns1KI-yKmL61H4kKnBHF0sQqCVvAqqny_vBFIdotwg0RvQ&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQ8tMDegQIOhAI",
+   "5": "https://www.google.com/search?q=dioptrijski+okviri+akcija&sca_esv=e7de700c2700d61a&hl=sr&gl=rs&ei=HDdnasekM-OHwbkPweHpqA4&start=40&sa=N&sstk=AU9db-BxmflnHiPU3R9eJFi2yA_tZ0-8Y7hpG_EsYyyvetxLi36HHTnRns1KI-yKmL61H4kKnBHF0sQqCVvAqqny_vBFIdotwg0RvQ&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQ8tMDegQIOhAK",
+   "6": "https://www.google.com/search?q=dioptrijski+okviri+akcija&sca_esv=e7de700c2700d61a&hl=sr&gl=rs&ei=HDdnasekM-OHwbkPweHpqA4&start=50&sa=N&sstk=AU9db-BxmflnHiPU3R9eJFi2yA_tZ0-8Y7hpG_EsYyyvetxLi36HHTnRns1KI-yKmL61H4kKnBHF0sQqCVvAqqny_vBFIdotwg0RvQ&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQ8tMDegQIOhAM",
+   "7": "https://www.google.com/search?q=dioptrijski+okviri+akcija&sca_esv=e7de700c2700d61a&hl=sr&gl=rs&ei=HDdnasekM-OHwbkPweHpqA4&start=60&sa=N&sstk=AU9db-BxmflnHiPU3R9eJFi2yA_tZ0-8Y7hpG_EsYyyvetxLi36HHTnRns1KI-yKmL61H4kKnBHF0sQqCVvAqqny_vBFIdotwg0RvQ&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQ8tMDegQIOhAO",
+   "8": "https://www.google.com/search?q=dioptrijski+okviri+akcija&sca_esv=e7de700c2700d61a&hl=sr&gl=rs&ei=HDdnasekM-OHwbkPweHpqA4&start=70&sa=N&sstk=AU9db-BxmflnHiPU3R9eJFi2yA_tZ0-8Y7hpG_EsYyyvetxLi36HHTnRns1KI-yKmL61H4kKnBHF0sQqCVvAqqny_vBFIdotwg0RvQ&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQ8tMDegQIOhAQ",
+   "9": "https://www.google.com/search?q=dioptrijski+okviri+akcija&sca_esv=e7de700c2700d61a&hl=sr&gl=rs&ei=HDdnasekM-OHwbkPweHpqA4&start=80&sa=N&sstk=AU9db-BxmflnHiPU3R9eJFi2yA_tZ0-8Y7hpG_EsYyyvetxLi36HHTnRns1KI-yKmL61H4kKnBHF0sQqCVvAqqny_vBFIdotwg0RvQ&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQ8tMDegQIOhAS",
+   "10": "https://www.google.com/search?q=dioptrijski+okviri+akcija&sca_esv=e7de700c2700d61a&hl=sr&gl=rs&ei=HDdnasekM-OHwbkPweHpqA4&start=90&sa=N&sstk=AU9db-BxmflnHiPU3R9eJFi2yA_tZ0-8Y7hpG_EsYyyvetxLi36HHTnRns1KI-yKmL61H4kKnBHF0sQqCVvAqqny_vBFIdotwg0RvQ&ved=2ahUKEwjHos-F1_KVAxXjQzABHcFwGuUQ8tMDegQIOhAU"
+  }
+ },
+ "serpapi_pagination": {
+  "current": 1,
+  "next_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=dioptrijski+okviri+akcija&start=10",
+  "next": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=dioptrijski+okviri+akcija&start=10",
+  "other_pages": {
+   "2": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=dioptrijski+okviri+akcija&start=10",
+   "3": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=dioptrijski+okviri+akcija&start=20",
+   "4": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=dioptrijski+okviri+akcija&start=30",
+   "5": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=dioptrijski+okviri+akcija&start=40",
+   "6": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=dioptrijski+okviri+akcija&start=50",
+   "7": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=dioptrijski+okviri+akcija&start=60",
+   "8": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=dioptrijski+okviri+akcija&start=70",
+   "9": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=dioptrijski+okviri+akcija&start=80",
+   "10": "https://serpapi.com/search.json?device=desktop&engine=google&gl=rs&google_domain=google.com&hl=sr&q=dioptrijski+okviri+akcija&start=90"
+  }
+ }
+}

@@ -13,3 +13,14 @@ sites:
     slug: optika-cajs
     display_name: "Optika Cajs"
     brand_token: cajs
+    # serp_location is DELIBERATELY UNSET, i.e. country-level Serbia.
+    #
+    # Measured 2026-07-27: SerpApi has no location entry for Leskovac. The
+    # nearest supported city is "Nis,Serbia", ~45 km away. Substituting Nis
+    # would quietly report a different city's competitors as this shop's own
+    # -- a proxy dressed as a measurement, which is the mistake this project
+    # keeps refusing to make. Country-level is honest, and a query that
+    # really is local ("optika leskovac") carries its geography in the words.
+    #
+    # Set this to a canonical SerpApi name (note: no space after the comma)
+    # if that trade-off ever changes.
