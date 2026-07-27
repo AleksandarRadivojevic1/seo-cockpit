@@ -78,7 +78,14 @@ def test_run_reports_failed_sites_but_still_exits_zero():
 # ---------------------------------------------------------------------------
 
 
-def test_build_scheduler_registers_exactly_one_daily_job():
+def _job_by_id(scheduler, job_id):
+    for job in scheduler.get_jobs():
+        if job.id == job_id:
+            return job
+    raise AssertionError(f"no job with id {job_id!r}")
+
+
+def test_build_scheduler_registers_the_daily_collection_job():
     config = _DummyConfig()
     calls = []
 
@@ -89,10 +96,7 @@ def test_build_scheduler_registers_exactly_one_daily_job():
     scheduler = build_scheduler(config, collect_fn=collect_fn)
 
     assert isinstance(scheduler, BlockingScheduler)
-    jobs = scheduler.get_jobs()
-    assert len(jobs) == 1
-
-    job = jobs[0]
+    job = _job_by_id(scheduler, "daily_incremental_collection")
     assert job.trigger.fields[job.trigger.FIELD_NAMES.index("hour")].expressions[0].first == 3
     assert job.trigger.fields[job.trigger.FIELD_NAMES.index("minute")].expressions[0].first == 0
 
@@ -100,6 +104,75 @@ def test_build_scheduler_registers_exactly_one_daily_job():
     # collect_fn(config, "incremental") without ever starting the scheduler.
     job.func()
     assert calls == [(config, "incremental")]
+
+
+def test_build_scheduler_registers_the_weekly_digest_on_monday_after_collection():
+    """The digest must read a database the day's run has already written.
+
+    Collection is 03:00 UTC; the digest is 07:00 UTC Monday. If the digest
+    ran first it would report a week ending on stale data every time.
+    """
+    config = _DummyConfig()
+    scheduler = build_scheduler(config, collect_fn=lambda cfg, mode: [])
+
+    job = _job_by_id(scheduler, "weekly_digest")
+    fields = {name: job.trigger.fields[i] for i, name in enumerate(job.trigger.FIELD_NAMES)}
+    assert str(fields["day_of_week"]) == "mon"
+    assert fields["hour"].expressions[0].first == 7
+    assert str(job.trigger.timezone) == "UTC"
+
+
+def test_only_the_two_expected_jobs_are_registered():
+    config = _DummyConfig()
+    scheduler = build_scheduler(config, collect_fn=lambda cfg, mode: [])
+    assert {job.id for job in scheduler.get_jobs()} == {
+        "daily_incremental_collection",
+        "weekly_digest",
+    }
+
+
+def test_a_clean_run_sends_no_notification(monkeypatch):
+    """The daily job must stay silent when nothing went wrong.
+
+    Wiring regression guard: it would be easy to "helpfully" push a summary
+    from the job, which is the exact behaviour this feature rejected.
+    """
+    import seocockpit.schedule as schedule_module
+
+    published = []
+    monkeypatch.setattr(
+        schedule_module.notify,
+        "config_from_env",
+        lambda: schedule_module.notify.NtfyConfig(url="http://x", topic="t"),
+    )
+    monkeypatch.setattr(
+        schedule_module.notify,
+        "alert_run_result",
+        lambda config, results, **kw: published.append(results) or False,
+    )
+
+    config = _DummyConfig()
+    results = [{"site": "a", "status": "success", "rows": 5, "error": None, "cwv_error": None}]
+    scheduler = build_scheduler(config, collect_fn=lambda cfg, mode: results)
+    _job_by_id(scheduler, "daily_incremental_collection").func()
+
+    # alert_run_result is called, and it is the function that decides to stay
+    # silent -- the job must not second-guess it or publish separately.
+    assert published == [results]
+
+
+def test_a_notification_failure_does_not_break_the_collection_job(monkeypatch):
+    import seocockpit.schedule as schedule_module
+
+    def boom():
+        raise RuntimeError("ntfy config exploded")
+
+    monkeypatch.setattr(schedule_module.notify, "config_from_env", boom)
+
+    config = _DummyConfig()
+    scheduler = build_scheduler(config, collect_fn=lambda cfg, mode: [])
+    # Must not raise: the data is already committed by this point.
+    _job_by_id(scheduler, "daily_incremental_collection").func()
 
 
 def test_build_scheduler_fires_in_utc_not_server_local_time():

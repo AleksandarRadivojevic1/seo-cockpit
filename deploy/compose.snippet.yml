@@ -45,6 +45,20 @@ services:
       # the Chrome UX Report API enabled — a CrUX 403 raises rather than
       # degrading, so a key missing CrUX yields zero CWV snapshots.
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:?set GOOGLE_API_KEY in ~/server/.env}
+      # ntfy push alerts. OPTIONAL and unset by default: with either of the
+      # first two blank, alerting switches off and collection is unaffected.
+      # Deliberately NOT `:?` — a missing notifier must never stop the
+      # collector, which is the thing that actually matters.
+      #
+      # ntfy already runs on this Pi on host port 8090. Both containers are on
+      # the same compose network, so the collector reaches it by SERVICE NAME
+      # (e.g. http://ntfy) on its INTERNAL port — the 8090 host mapping is for
+      # your browser, not for container-to-container traffic. Use the LAN
+      # address only if ntfy lives outside this compose project.
+      NTFY_URL: ${NTFY_URL:-}
+      NTFY_TOPIC: ${NTFY_TOPIC:-}
+      # Only needed if the topic is access-protected.
+      NTFY_TOKEN: ${NTFY_TOKEN:-}
       TZ: UTC
     volumes:
       # The database. READ-WRITE here: this is the only writer.
@@ -54,10 +68,13 @@ services:
       # the mounts land at /app/data and /app/secrets exactly.
       - ./seo-cockpit/src/collector/sites.yaml:/app/sites.yaml:ro
       - ./seo-cockpit/secrets:/app/secrets:ro
-    # `serve` blocks on the scheduler (daily 03:00 UTC). For the one-shot
-    # backfill in T15, run a throwaway container instead of changing this:
+    # `serve` blocks on the scheduler: daily collection at 03:00 UTC and the
+    # weekly ntfy digest Mondays 07:00 UTC. For one-shot commands, run a
+    # throwaway container instead of changing this:
     #   docker compose run --rm seo-cockpit-collector \
     #     python -m seocockpit.schedule run --backfill
+    #   docker compose run --rm seo-cockpit-collector \
+    #     python -m seocockpit.schedule digest --dry-run
 
   seo-cockpit-dashboard:
     build:

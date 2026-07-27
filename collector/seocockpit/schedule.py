@@ -23,6 +23,7 @@ from typing import Callable
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from . import notify
 from .collect import collect_once
 from .config import Config, load_config
 
@@ -42,6 +43,12 @@ DEFAULT_MINUTE = 0
 # a missed run from a clock offset.
 SCHEDULE_TIMEZONE = datetime.timezone.utc
 
+# Weekly digest slot: Monday 07:00 UTC, four hours after the daily collection
+# so the week's last run is already in the database when the digest reads it.
+DIGEST_DAY_OF_WEEK = "mon"
+DIGEST_HOUR = 7
+DIGEST_MINUTE = 0
+
 
 def _log_summary(results: list[dict]) -> None:
     """Log one line per site plus a totals line, at INFO."""
@@ -56,6 +63,25 @@ def _log_summary(results: list[dict]) -> None:
     succeeded = sum(1 for r in results if r["status"] == "success")
     failed = len(results) - succeeded
     logger.info("collection run complete: %d succeeded, %d failed", succeeded, failed)
+
+
+def _notify_problems(results: list[dict]) -> None:
+    """Push an ntfy alert if this run had problems. Silent when it did not.
+
+    Wrapped so that a notification bug can never turn a successful
+    collection into a failed process: the data is already committed by the
+    time this runs, and losing the alert is strictly better than losing the
+    run.
+    """
+    try:
+        config = notify.config_from_env()
+        if config is None:
+            logger.debug("ntfy not configured (NTFY_URL/NTFY_TOPIC unset); no alert sent")
+            return
+        if notify.alert_run_result(config, results):
+            logger.info("ntfy problem alert sent")
+    except Exception as e:  # pragma: no cover - defensive
+        logger.warning("ntfy alerting raised, ignoring: %s", e)
 
 
 def build_scheduler(
@@ -77,6 +103,7 @@ def build_scheduler(
     def _job() -> None:
         results = collect_fn(config, "incremental")
         _log_summary(results)
+        _notify_problems(results)
 
     scheduler.add_job(
         _job,
@@ -84,7 +111,35 @@ def build_scheduler(
         id="daily_incremental_collection",
         name="daily incremental collection",
     )
+
+    scheduler.add_job(
+        lambda: _digest_job(config),
+        CronTrigger(
+            day_of_week=DIGEST_DAY_OF_WEEK,
+            hour=DIGEST_HOUR,
+            minute=DIGEST_MINUTE,
+            timezone=SCHEDULE_TIMEZONE,
+        ),
+        id="weekly_digest",
+        name="weekly ntfy digest",
+    )
     return scheduler
+
+
+def _digest_job(config: Config) -> None:
+    """Build and push the weekly digest. Never raises into the scheduler."""
+    try:
+        ntfy_config = notify.config_from_env()
+        if ntfy_config is None:
+            logger.debug("ntfy not configured; skipping weekly digest")
+            return
+        from . import db as db_module
+
+        conn = db_module.init_db(config.db_path)
+        if notify.send_weekly_digest(conn, config.sites, ntfy_config):
+            logger.info("ntfy weekly digest sent")
+    except Exception as e:  # pragma: no cover - defensive
+        logger.warning("weekly digest raised, ignoring: %s", e)
 
 
 def _run(config: Config, collect_fn: Callable, backfill: bool) -> int:
@@ -92,6 +147,31 @@ def _run(config: Config, collect_fn: Callable, backfill: bool) -> int:
     logger.info("starting one-shot collection run: mode=%s", mode)
     results = collect_fn(config, mode)
     _log_summary(results)
+    _notify_problems(results)
+    return 0
+
+
+def _digest(config: Config, dry_run: bool) -> int:
+    """Send the weekly digest now, or print it without sending."""
+    from . import db as db_module
+
+    conn = db_module.init_db(config.db_path)
+    title, message = notify.build_weekly_digest(conn, config.sites)
+
+    if dry_run:
+        print(title)
+        print(message)
+        return 0
+
+    ntfy_config = notify.config_from_env()
+    if ntfy_config is None:
+        raise SystemExit(
+            "ntfy is not configured: set NTFY_URL and NTFY_TOPIC "
+            "(use --dry-run to preview the digest without sending)"
+        )
+    if not notify.send_weekly_digest(conn, config.sites, ntfy_config):
+        raise SystemExit("digest could not be delivered; see the log above")
+    logger.info("weekly digest sent")
     return 0
 
 
@@ -229,6 +309,16 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Show which seeds would be queried and the remaining credits, and exit.",
     )
 
+    digest_parser = subparsers.add_parser(
+        "digest",
+        help="Send the weekly ntfy digest now (also runs automatically Mondays 07:00 UTC).",
+    )
+    digest_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the digest instead of sending it. Works without ntfy configured.",
+    )
+
     return parser
 
 
@@ -262,6 +352,8 @@ def main(
         return _discover(config, args.site)
     if args.command == "trends":
         return _trends(config, args.site, args.dry_run)
+    if args.command == "digest":
+        return _digest(config, args.dry_run)
 
     parser.error(f"unknown command: {args.command}")
     return 2
