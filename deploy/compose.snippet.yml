@@ -5,6 +5,14 @@
 # stacks. It is nonetheless valid on its own so `docker compose -f
 # deploy/compose.snippet.yml config` can validate it.
 #
+# CONSEQUENCE THAT HAS ALREADY BITTEN ONCE (2026-07-27): `git pull` on the Pi
+# updates THIS file, not the live ~/server/docker-compose.yml. Adding a
+# variable here does nothing on its own -- it must also be pasted into the
+# live file, because a `.env` entry only reaches a container if the compose
+# service actually references it. The ntfy variables were set correctly in
+# ~/server/.env and still never reached the collector for exactly this reason.
+# After changing anything below, diff it against the live file.
+#
 # Layout on the target Pi (user `acko`, /home/acko/server):
 #
 #   ~/server/seo-cockpit/
@@ -59,6 +67,9 @@ services:
       NTFY_TOPIC: ${NTFY_TOPIC:-}
       # Only needed if the topic is access-protected.
       NTFY_TOKEN: ${NTFY_TOKEN:-}
+      # Metered SERP checks (Task 2.5). Optional: the `serp` command refuses
+      # to run without it and nothing else touches it.
+      SERPAPI_KEY: ${SERPAPI_KEY:-}
       TZ: UTC
     volumes:
       # The database. READ-WRITE here: this is the only writer.
