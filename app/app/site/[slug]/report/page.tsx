@@ -87,7 +87,7 @@ export default async function ReportPage({
   return (
     <div className="report mx-auto w-full max-w-[210mm] bg-white px-10 py-10 text-neutral-900">
       <div className="mb-6 flex justify-end print:hidden">
-        <PrintButton />
+        <PrintButton href={`/site/${slug}/report/pdf`} />
       </div>
 
       <header className="mb-8">

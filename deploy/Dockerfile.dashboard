@@ -76,7 +76,29 @@ WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
-    HOSTNAME=0.0.0.0
+    HOSTNAME=0.0.0.0 \
+    CHROMIUM_PATH=/usr/bin/chromium
+
+# Chromium is the PDF renderer for the Serbian client report
+# (/site/<slug>/report/pdf). It is genuinely a runtime dependency, not a
+# build tool: the route prints the live report page, so the browser has to be
+# in the final image.
+#
+# This is the largest single cost in the image (~400MB installed on arm64) and
+# it buys one thing — a real downloaded file instead of the browser's print
+# dialog, which no web API can bypass. Puppeteer/Playwright would vendor a
+# SECOND copy of the same browser, so the system package is what we drive;
+# lib/report/pdf.ts spawns it directly and needs no npm dependency at all.
+#
+# No font package is installed on purpose: the report's only typeface is
+# Geist, self-hosted by next/font out of .next/static and embedded into the
+# PDF, which was verified with `pdffonts` to be the sole font in the output.
+# If a future page uses a glyph Geist lacks, the symptom is tofu boxes in the
+# PDF and the fix is `fonts-dejavu-core` here.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends chromium \
+    && rm -rf /var/lib/apt/lists/* \
+    && test -x "$CHROMIUM_PATH"
 
 # Fixed uid so the read-only data mount can be reasoned about on the host.
 RUN useradd --uid 10002 --create-home --shell /usr/sbin/nologin dashboard

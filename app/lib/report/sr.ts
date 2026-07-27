@@ -21,6 +21,9 @@ export const SR = {
   authorSite: "alexrad.dev",
   period: "Period",
   print: "Sačuvaj kao PDF",
+  /** The server renders the document; on a Pi this takes a few seconds. */
+  printBusy: "Priprema se PDF…",
+  printError: "Priprema PDF-a nije uspela. Pokušajte ponovo.",
 
   summary: "Sažetak",
   /** [one, few, other] — Serbian has three plural forms. See pluralSr. */
