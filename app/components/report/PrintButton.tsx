@@ -40,8 +40,13 @@ export default function PrintButton({ href }: { href: string }) {
       const link = document.createElement("a");
       link.href = url;
       link.download = name;
+      // Attached to the document before clicking, and revoked on a later
+      // tick: Chrome ignores a click on a detached anchor, and revoking the
+      // object URL synchronously can cancel the download it just started.
+      document.body.appendChild(link);
       link.click();
-      URL.revokeObjectURL(url);
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
       setState("idle");
     } catch {
       setState("error");

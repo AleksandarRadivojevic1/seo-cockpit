@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import BrandBandChart from "../../../components/BrandBandChart";
 import BrandRing from "../../../components/BrandRing";
 import CountryMap from "../../../components/CountryMap";
 import CwvPanel from "../../../components/CwvPanel";
@@ -17,6 +18,7 @@ import TopPagesBar from "../../../components/TopPagesBar";
 import TrendChart from "../../../components/TrendChart";
 import type { TrendPoint } from "../../../components/TrendChart";
 import { Badge } from "../../../components/ui/badge";
+import { brandSeries, buildBrandBandSeries } from "../../../lib/analysis/brand";
 import { buildBrandBreakdown, topPages } from "../../../lib/analysis/breakdown";
 import { buildCountryBreakdown } from "../../../lib/analysis/geography";
 import { buildDemandBreakdown } from "../../../lib/analysis/demand";
@@ -65,6 +67,27 @@ const FRESHNESS_LABEL: Record<FreshnessLevel, string> = {
  * is click-only and file-private, but the null-vs-zero contract is
  * identical and must stay identical.
  */
+/**
+ * The non-brand impressions comparison, in words.
+ *
+ * `hasPriorWindow` is not optional politeness. `deriveSignals` computes
+ * `nonBrandImpressionsDelta` as `recent − prior`, and `prior` is 0 both when
+ * the previous window measured zero non-brand impressions AND when it was
+ * never collected at all. On optika-cajs, whose history starts inside the
+ * current window, that rendered as "up 13 versus the previous one" — a
+ * comparison against a period that does not exist. Caught in the browser,
+ * not in a test, which is where this class of bug always shows up.
+ *
+ * Stated as an absolute count rather than a percentage: at 13 impressions a
+ * window, a percentage swings hundreds of points on a change of two and reads
+ * as precision the data cannot support.
+ */
+export function formatNonBrandDelta(delta: number, hasPriorWindow: boolean): string {
+  if (!hasPriorWindow) return "no previous period to compare against";
+  if (delta === 0) return "unchanged versus the previous period";
+  return `${delta > 0 ? "up" : "down"} ${Math.abs(delta)} versus the previous period`;
+}
+
 export function buildTrendSeries(rows: TotalsRow[], start: string, end: string): TrendPoint[] {
   const byDate = new Map(rows.map((row) => [row.date, row]));
   const series: TrendPoint[] = [];
@@ -106,12 +129,22 @@ export default async function SitePage({
 
   const asOf = formatISODateUTC(new Date());
   const summary = buildSiteSummary(config, asOf);
-  const { recentStart, recentEnd } = windowBounds(asOf);
+  const { recentStart, recentEnd, priorStart, priorEnd } = windowBounds(asOf);
   const rows = totalsInRange(config.property, recentStart, recentEnd);
+  // Whether a prior window EXISTS, which is not the same as it being flat.
+  // Without this the non-brand delta compares against a period that was
+  // never collected and reports the whole current figure as growth.
+  const hasPriorWindow = totalsInRange(config.property, priorStart, priorEnd).length > 0;
   const series = buildTrendSeries(rows, recentStart, recentEnd);
 
   const { recent, prior } = recentVsPrior(config.property, asOf);
   const signals = deriveSignals(recent, prior, config.brandToken);
+  const bands = buildBrandBandSeries(
+    rows,
+    brandSeries(config.property, recentStart, recentEnd, config.brandToken),
+    recentStart,
+    recentEnd
+  );
 
   const pages = topPages(pageRowsInRange(config.property, recentStart, recentEnd), 8);
   // Window total from totals_daily, NOT from summing query rows: the gap
@@ -264,6 +297,34 @@ export default async function SitePage({
               Impressions by query type
             </h2>
             <BrandRing breakdown={breakdown} />
+          </section>
+
+          {/* The ring answers "how much of this window was brand"; this
+              answers "is the non-brand share growing", which is the only one
+              of the two that reports on the work. */}
+          <section className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
+            <h2 className="pb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              Query type over time
+            </h2>
+            {summary.dataState === "not-collected" ? (
+              <EmptyState title="Not collected yet" />
+            ) : (
+              <>
+                <p className="pb-3 text-sm text-muted-foreground">
+                  Non-brand impressions{" "}
+                  <span className="font-medium text-foreground">
+                    {signals.brandSplit.nonBrand.impressions}
+                  </span>{" "}
+                  this window,{" "}
+                  {formatNonBrandDelta(
+                    signals.brandSplit.nonBrandImpressionsDelta,
+                    hasPriorWindow
+                  )}
+                  .
+                </p>
+                <BrandBandChart data={bands} />
+              </>
+            )}
           </section>
 
           <section className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">

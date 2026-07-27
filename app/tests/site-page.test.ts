@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildTrendSeries } from "../app/site/[slug]/page";
+import { buildTrendSeries, formatNonBrandDelta } from "../app/site/[slug]/page";
 import type { TotalsRow } from "../lib/db";
 
 function totalsRow(overrides: Partial<TotalsRow>): TotalsRow {
@@ -54,5 +54,25 @@ describe("buildTrendSeries", () => {
     const rows = [totalsRow({ date: "2026-07-01", clicks: 3, impressions: 0 })];
     const series = buildTrendSeries(rows, "2026-07-01", "2026-07-01");
     expect(series[0]).toEqual({ date: "2026-07-01", clicks: 3, impressions: 0 });
+  });
+});
+
+describe("formatNonBrandDelta", () => {
+  it("refuses to compare against a window that was never collected", () => {
+    // deriveSignals computes the delta as recent - prior, and prior is 0 both
+    // for a measured zero AND for a window with no rows at all. optika-cajs's
+    // history starts inside the current window, so this rendered as
+    // "up 13 versus the previous one" against a period that does not exist.
+    expect(formatNonBrandDelta(13, false)).toBe("no previous period to compare against");
+    expect(formatNonBrandDelta(13, false)).not.toMatch(/13/);
+  });
+
+  it("reports real movement in both directions", () => {
+    expect(formatNonBrandDelta(13, true)).toBe("up 13 versus the previous period");
+    expect(formatNonBrandDelta(-4, true)).toBe("down 4 versus the previous period");
+  });
+
+  it("says unchanged rather than printing a zero that looks like a gap", () => {
+    expect(formatNonBrandDelta(0, true)).toBe("unchanged versus the previous period");
   });
 });

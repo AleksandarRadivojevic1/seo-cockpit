@@ -9,7 +9,7 @@ interface BrandRingProps {
   breakdown: BrandBreakdown;
 }
 
-const SEGMENT_COLORS = {
+export const SEGMENT_COLORS = {
   brand: "oklch(0.74 0.15 165)",
   nonBrand: "oklch(0.72 0.13 250)",
   anonymized: "oklch(0.55 0 0)",

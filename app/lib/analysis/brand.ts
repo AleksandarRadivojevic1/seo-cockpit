@@ -1,6 +1,8 @@
 import type Database from "better-sqlite3";
 
 import { queryRowsInRange } from "../db";
+import type { TotalsRow } from "../db";
+import { addDaysUTC } from "./windows";
 
 /**
  * NFD-normalizes `s` and strips combining marks (accents/diacritics), so
@@ -100,4 +102,72 @@ export function brandSeries(
   }
   result.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   return result;
+}
+
+/**
+ * One entry per calendar day, splitting the day's impressions into the three
+ * groups that actually exist: queries carrying the brand token, queries that
+ * do not, and impressions Google never attributed to any query at all.
+ *
+ * **Why the third band is not optional.** `brandSeries` reads `query_daily`,
+ * and GSC withholds the query for rare searches — so brand + non-brand is
+ * systematically *less* than `totals_daily`, by 74.9% on optika-cajs and
+ * 47.1% on skedio (measured 2026-07-27). Charting only the two attributed
+ * bands would draw a quarter of the site's real traffic and read as a
+ * collapse; the missing three quarters are not absent, merely unlabelled.
+ * With the third band the stack's height equals the impressions line exactly,
+ * so this chart and the trend chart above it cannot appear to disagree.
+ *
+ * The gap is genuinely Google's and not our own truncation: `gsc.py` caps
+ * `query_daily` at 500 rows per day and the busiest real day holds 4.
+ *
+ * `null` on every field means the day was never collected and the stack must
+ * break, exactly as `buildTrendSeries` does. A day that WAS collected and
+ * attributed nothing is three real zeros — the distinction this project has
+ * now got wrong four times.
+ */
+export interface BrandBandPoint {
+  date: string;
+  brand: number | null;
+  nonBrand: number | null;
+  /** `total − (brand + nonBrand)`: impressions Google did not attribute. */
+  anonymized: number | null;
+  total: number | null;
+  // The vendored chart's data prop is Record<string, unknown>[].
+  [key: string]: unknown;
+}
+
+export function buildBrandBandSeries(
+  totals: TotalsRow[],
+  brand: BrandSeriesEntry[],
+  start: string,
+  end: string
+): BrandBandPoint[] {
+  const totalsByDate = new Map(totals.map((row) => [row.date, row]));
+  const brandByDate = new Map(brand.map((entry) => [entry.date, entry]));
+
+  const series: BrandBandPoint[] = [];
+  for (let date = start; date <= end; date = addDaysUTC(date, 1)) {
+    const row = totalsByDate.get(date);
+    if (!row) {
+      // No totals row: the day was not collected. Query rows alone would
+      // fabricate a total, so they are deliberately ignored here.
+      series.push({ date, brand: null, nonBrand: null, anonymized: null, total: null });
+      continue;
+    }
+
+    const split = brandByDate.get(date);
+    const brandImpressions = split ? split.brand.impressions : 0;
+    const nonBrandImpressions = split ? split.nonBrand.impressions : 0;
+    series.push({
+      date,
+      brand: brandImpressions,
+      nonBrand: nonBrandImpressions,
+      // Clamped: a negative band would render as an inverted area and
+      // silently break the "bands sum to the total" guarantee.
+      anonymized: Math.max(0, row.impressions - brandImpressions - nonBrandImpressions),
+      total: row.impressions,
+    });
+  }
+  return series;
 }
