@@ -4,7 +4,15 @@ from seocockpit.schedule import build_scheduler, main
 
 
 class _DummyConfig:
-    """Stand-in for a loaded Config -- schedule.py never inspects it."""
+    """Stand-in for a loaded Config.
+
+    ``db_path`` is read by the post-run backup job. Backups stay disabled in
+    these tests because SEO_BACKUP_DIR is unset, so run_backup returns
+    immediately -- but the attribute has to exist, since the call site reads
+    it before run_backup's own error isolation applies.
+    """
+
+    db_path = "/nonexistent/seo.db"
 
 
 def _refusing_scheduler_factory(*args, **kwargs):

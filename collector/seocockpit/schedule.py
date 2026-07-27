@@ -24,6 +24,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from . import notify
+from .backup import run_backup
 from .collect import collect_once
 from .config import Config, load_config
 
@@ -104,6 +105,10 @@ def build_scheduler(
         results = collect_fn(config, "incremental")
         _log_summary(results)
         _notify_problems(results)
+        # After the run, so a snapshot always contains the day just
+        # collected. Isolated inside run_backup: a backup problem must not
+        # turn a healthy collection into a reported failure.
+        run_backup(config.db_path)
 
     scheduler.add_job(
         _job,
@@ -148,6 +153,7 @@ def _run(config: Config, collect_fn: Callable, backfill: bool) -> int:
     results = collect_fn(config, mode)
     _log_summary(results)
     _notify_problems(results)
+    run_backup(config.db_path)
     return 0
 
 

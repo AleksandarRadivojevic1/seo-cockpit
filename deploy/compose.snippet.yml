@@ -70,10 +70,22 @@ services:
       # Metered SERP checks (Task 2.5). Optional: the `serp` command refuses
       # to run without it and nothing else touches it.
       SERPAPI_KEY: ${SERPAPI_KEY:-}
+      # Where the post-run database snapshot is written. UNSET DISABLES
+      # BACKUPS ENTIRELY — deliberately, because the only sane default would
+      # be somewhere on the SD card, which is the failure this exists to
+      # survive. Must point at the mount below, not at a host path: the
+      # collector only ever sees container paths.
+      SEO_BACKUP_DIR: ${SEO_BACKUP_DIR:-/backups}
       TZ: UTC
     volumes:
       # The database. READ-WRITE here: this is the only writer.
       - ./seo-cockpit/data:/app/data
+      # Backup target on the NVMe drive — a DIFFERENT PHYSICAL DEVICE from
+      # the SD card holding data/. That separation is the whole point: a
+      # snapshot beside the original survives an accidental delete but not a
+      # dead card, which is the likelier way to lose a Pi's storage.
+      # 458G there against ~600KB a snapshot, so retention is free.
+      - /media/library/backups/seo-cockpit:/backups
       # Config and credentials, both read-only. sites.yaml resolves db_path and
       # service_account_path RELATIVE to the working directory, which is why
       # the mounts land at /app/data and /app/secrets exactly.
