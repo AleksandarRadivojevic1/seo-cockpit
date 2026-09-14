@@ -6,12 +6,21 @@ and service account credentials path) into typed objects.
 
 from __future__ import annotations
 
+import json
+import logging
+import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "sites.yaml"
+
+# Path to the dashboard-written user sites file, when not passed explicitly.
+USER_SITES_ENV = "SEO_USER_SITES_PATH"
 
 _REQUIRED_TOP_LEVEL_KEYS = ("db_path", "service_account_path", "sites")
 _REQUIRED_SITE_KEYS = ("property", "slug", "display_name", "brand_token")
@@ -63,7 +72,69 @@ class Config:
     service_account_path: str
 
 
-def load_config(path: str | Path | None = None) -> Config:
+def _site_from_dict(raw: Mapping, source: str) -> Site | None:
+    """Build a ``Site`` from a raw mapping, or ``None`` (logged) if invalid.
+
+    Used for the dashboard-written user sites, which unlike ``sites.yaml`` are
+    edited at runtime and may be incomplete. A missing required key skips just
+    that entry rather than aborting the whole run.
+    """
+    for key in _REQUIRED_SITE_KEYS:
+        if key not in raw:
+            logger.warning(
+                "skipping %s entry missing required key '%s': %r", source, key, raw
+            )
+            return None
+    return Site(
+        property=raw["property"],
+        slug=raw["slug"],
+        display_name=raw["display_name"],
+        brand_token=raw["brand_token"],
+        discover_seeds=tuple(raw.get("discover_seeds") or ()),
+        trend_seeds=tuple(raw.get("trend_seeds") or ()),
+        serp_location=raw.get("serp_location") or None,
+    )
+
+
+def _load_user_sites(path: str | Path | None) -> list[Site]:
+    """Read the dashboard-written user-sites JSON array. Never raises.
+
+    ``path`` defaults to the ``SEO_USER_SITES_PATH`` env var; unset means the
+    feature is dormant and no user sites are loaded. A missing file, malformed
+    JSON, or a non-array payload yields an empty list (logged) so a bad config
+    can never abort collection of the ``sites.yaml`` seed sites.
+    """
+    if path is None:
+        env = os.environ.get(USER_SITES_ENV)
+        if not env:
+            return []
+        path = env
+    p = Path(path)
+    if not p.exists():
+        return []
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        logger.warning("could not read user sites file %s: %s", p, e)
+        return []
+    if not isinstance(raw, list):
+        logger.warning("user sites file %s is not a JSON array; ignoring", p)
+        return []
+    sites: list[Site] = []
+    for entry in raw:
+        if not isinstance(entry, Mapping):
+            logger.warning("skipping non-object user site entry: %r", entry)
+            continue
+        site = _site_from_dict(entry, "user-sites.json")
+        if site is not None:
+            sites.append(site)
+    return sites
+
+
+def load_config(
+    path: str | Path | None = None,
+    user_sites_path: str | Path | None = None,
+) -> Config:
     """Load and parse the collector config from a sites.yaml file.
 
     Args:
@@ -112,6 +183,19 @@ def load_config(path: str | Path | None = None) -> Config:
                 serp_location=raw_site.get("serp_location") or None,
             )
         )
+
+    # Append dashboard-added sites after the YAML seeds. On a slug collision
+    # the YAML seed wins and the user entry is dropped (the dashboard already
+    # prevents this at submit time; this is defence in depth).
+    for user_site in _load_user_sites(user_sites_path):
+        if user_site.slug in seen_slugs:
+            logger.warning(
+                "user site slug '%s' collides with a configured site; dropping",
+                user_site.slug,
+            )
+            continue
+        seen_slugs.add(user_site.slug)
+        sites.append(user_site)
 
     return Config(
         sites=sites,

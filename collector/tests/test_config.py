@@ -97,3 +97,61 @@ sites:
         encoding="utf-8",
     )
     assert load_config(path).sites[0].serp_location is None
+
+
+def test_load_config_merges_user_sites():
+    config = load_config(
+        FIXTURES_DIR / "fixture_sites.yaml",
+        user_sites_path=FIXTURES_DIR / "fixture_user_sites.json",
+    )
+    slugs = [s.slug for s in config.sites]
+    assert slugs == ["example", "example-org", "agency"]
+    agency = next(s for s in config.sites if s.slug == "agency")
+    assert agency.property == "sc-domain:agency.example"
+    assert agency.brand_token == "agency"
+
+
+def test_load_config_missing_user_sites_file_is_ignored(tmp_path):
+    config = load_config(
+        FIXTURES_DIR / "fixture_sites.yaml",
+        user_sites_path=tmp_path / "does-not-exist.json",
+    )
+    assert [s.slug for s in config.sites] == ["example", "example-org"]
+
+
+def test_load_config_malformed_user_sites_is_ignored(tmp_path):
+    bad = tmp_path / "user-sites.json"
+    bad.write_text("{ this is not valid json", encoding="utf-8")
+    config = load_config(FIXTURES_DIR / "fixture_sites.yaml", user_sites_path=bad)
+    assert [s.slug for s in config.sites] == ["example", "example-org"]
+
+
+def test_load_config_skips_invalid_user_entry_keeps_valid():
+    config = load_config(
+        FIXTURES_DIR / "fixture_sites.yaml",
+        user_sites_path=FIXTURES_DIR / "fixture_user_sites_bad_entry.json",
+    )
+    slugs = [s.slug for s in config.sites]
+    assert "good" in slugs
+    assert "bad" not in slugs
+
+
+def test_load_config_user_slug_colliding_with_yaml_is_dropped(tmp_path):
+    collide = tmp_path / "user-sites.json"
+    collide.write_text(
+        '[{"property":"sc-domain:x.example","slug":"example",'
+        '"display_name":"Dup","brand_token":"dup"}]',
+        encoding="utf-8",
+    )
+    config = load_config(FIXTURES_DIR / "fixture_sites.yaml", user_sites_path=collide)
+    examples = [s for s in config.sites if s.slug == "example"]
+    assert len(examples) == 1
+    assert examples[0].property == "sc-domain:example.com"
+
+
+def test_load_config_reads_user_sites_from_env(tmp_path, monkeypatch):
+    monkeypatch.setenv(
+        "SEO_USER_SITES_PATH", str(FIXTURES_DIR / "fixture_user_sites.json")
+    )
+    config = load_config(FIXTURES_DIR / "fixture_sites.yaml")
+    assert "agency" in [s.slug for s in config.sites]

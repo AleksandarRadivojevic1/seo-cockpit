@@ -1,0 +1,12 @@
+[
+  {
+    "property": "sc-domain:agency.example",
+    "slug": "agency",
+    "display_name": "My Agency",
+    "brand_token": "agency",
+    "discover_seeds": [],
+    "trend_seeds": [],
+    "serp_location": null,
+    "added_at": "2026-09-14T12:00:00Z"
+  }
+]

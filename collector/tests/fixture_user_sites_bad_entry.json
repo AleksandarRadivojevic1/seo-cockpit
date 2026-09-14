@@ -1,0 +1,5 @@
+[
+  {"property": "sc-domain:good.example", "slug": "good",
+   "display_name": "Good", "brand_token": "good"},
+  {"property": "sc-domain:bad.example", "slug": "bad", "display_name": "Bad"}
+]
