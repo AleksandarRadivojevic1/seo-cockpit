@@ -22,6 +22,9 @@
 #                   collected history. The repo gitignores collector/data
 #                   anyway, so it was never going to be version-controlled.
 #     secrets/   <- service-account.json, chmod 600. Same reasoning.
+#     config/    <- user-sites.json: sites added from the dashboard. PERSISTENT
+#                   and OUTSIDE the checkout for the same reason as data/. The
+#                   dashboard mounts it :rw, the collector :ro. `mkdir -p` it.
 #
 # sites.yaml resolves `db_path: data/seo.db` and
 # `service_account_path: secrets/service-account.json` RELATIVE to the working
@@ -76,6 +79,11 @@ services:
       # survive. Must point at the mount below, not at a host path: the
       # collector only ever sees container paths.
       SEO_BACKUP_DIR: ${SEO_BACKUP_DIR:-/backups}
+      # Sites added from the dashboard. The collector merges this file with the
+      # sites.yaml seeds; a site with no history yet backfills on its next run.
+      # READ-ONLY to the collector (mounted below): the dashboard is the writer.
+      # A missing file simply means no dashboard-added sites.
+      SEO_USER_SITES_PATH: ${SEO_USER_SITES_PATH:-/config/user-sites.json}
       TZ: UTC
     volumes:
       # The database. READ-WRITE here: this is the only writer.
@@ -91,6 +99,10 @@ services:
       # the mounts land at /app/data and /app/secrets exactly.
       - ./seo-cockpit/src/collector/sites.yaml:/app/sites.yaml:ro
       - ./seo-cockpit/secrets:/app/secrets:ro
+      # Dashboard-added sites, READ-ONLY here. The dashboard writes this dir
+      # (mounted :rw on that service); the collector only reads it. A different
+      # directory from data/ on purpose, so the seo.db mount stays read-only.
+      - ./seo-cockpit/config:/config:ro
     # `serve` blocks on the scheduler: daily collection at 03:00 UTC and the
     # weekly ntfy digest Mondays 07:00 UTC. For one-shot commands, run a
     # throwaway container instead of changing this:
@@ -114,6 +126,10 @@ services:
       - seo-cockpit-collector
     environment:
       SEO_DB_PATH: /data/seo.db
+      # Where the add-site form writes dashboard-added sites. Same path the
+      # collector reads (SEO_USER_SITES_PATH above), inside the :rw config mount
+      # below. This is the ONE thing the dashboard writes; the DB stays :ro.
+      SEO_USER_SITES_PATH: ${SEO_USER_SITES_PATH:-/config/user-sites.json}
       # Drives the health panel's schedule-aware "is the collector running"
       # check. These MUST match the collector's actual schedule or the panel
       # will report a healthy collector as down, which trains you to ignore it.
@@ -128,6 +144,11 @@ services:
       # -shm sidecar, so a read-only mount fails outright with
       # SQLITE_READONLY_DIRECTORY — verified, not assumed. See DEPLOY.md.
       - ./seo-cockpit/data:/data:ro
+      # READ-WRITE, and deliberately a SEPARATE directory from data/ so the
+      # database mount above stays read-only. Holds user-sites.json, written by
+      # the add-site form and read by the collector. This is the only writable
+      # surface the dashboard has.
+      - ./seo-cockpit/config:/config:rw
     ports:
       # Host 8091 -> container 3000. VERIFY 8091 IS FREE on the Pi before
       # bringing this up (`docker compose ps`, `ss -ltnp | grep 8091`); if it
