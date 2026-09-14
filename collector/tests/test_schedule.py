@@ -309,7 +309,7 @@ def test_serve_builds_scheduler_via_factory_and_starts_it():
     fake = _FakeScheduler()
     factory_calls = []
 
-    def scheduler_factory(cfg, collect_fn):
+    def scheduler_factory(cfg, collect_fn, config_provider=None):
         factory_calls.append((cfg, collect_fn))
         return fake
 
@@ -324,3 +324,82 @@ def test_serve_builds_scheduler_via_factory_and_starts_it():
     assert fake.start_calls == 1
     assert len(factory_calls) == 1
     assert factory_calls[0][0] is config
+
+
+# ---------------------------------------------------------------------------
+# Config reload: dashboard add/remove/edit of sites must take effect on the
+# next run WITHOUT a collector restart. The scheduler resolves fresh config
+# per run via an optional `config_provider`, instead of closing over a single
+# config captured at process startup.
+# ---------------------------------------------------------------------------
+
+
+def test_watcher_reloads_config_before_each_run(tmp_path):
+    """Each triggered run collects against freshly-resolved config, so a site
+    added/removed via the dashboard is picked up without a restart."""
+    p = tmp_path / "run-now.json"  # absent at build -> last_seen is None
+    config_a = _DummyConfig()
+    config_b = _DummyConfig()
+    provided = [config_a, config_b]
+    seen = []
+
+    watch = make_run_trigger_watcher(
+        _DummyConfig(),  # startup snapshot -- must NOT be what runs use
+        lambda cfg, mode: seen.append(cfg) or [],
+        str(p),
+        config_provider=lambda: provided.pop(0),
+    )
+
+    p.write_text(json.dumps({"requested_at": "t1"}), encoding="utf-8")
+    watch()
+    p.write_text(json.dumps({"requested_at": "t2"}), encoding="utf-8")
+    watch()
+
+    assert seen == [config_a, config_b]
+
+
+def test_daily_job_reloads_config_each_run():
+    """The daily cron job resolves fresh config on each fire, not the startup
+    snapshot."""
+    config_a = _DummyConfig()
+    config_b = _DummyConfig()
+    provided = [config_a, config_b]
+    seen = []
+
+    scheduler = build_scheduler(
+        _DummyConfig(),
+        collect_fn=lambda cfg, mode: seen.append(cfg) or [],
+        config_provider=lambda: provided.pop(0),
+    )
+
+    job = _job_by_id(scheduler, "daily_incremental_collection")
+    job.func()
+    job.func()
+
+    assert seen == [config_a, config_b]
+
+
+def test_serve_wires_a_disk_reloading_config_provider(monkeypatch):
+    """`serve` hands the scheduler a provider that reloads config from disk
+    (via load_config), so long-running collectors pick up config changes."""
+    import seocockpit.schedule as schedule_module
+
+    sentinel = _DummyConfig()
+    monkeypatch.setattr(schedule_module, "load_config", lambda: sentinel)
+
+    captured = {}
+
+    def scheduler_factory(cfg, collect_fn, config_provider=None):
+        captured["provider"] = config_provider
+        return _FakeScheduler()
+
+    exit_code = main(
+        ["serve"],
+        config=_DummyConfig(),
+        collect_fn=lambda cfg, mode: None,
+        scheduler_factory=scheduler_factory,
+    )
+
+    assert exit_code == 0
+    assert captured["provider"] is not None
+    assert captured["provider"]() is sentinel

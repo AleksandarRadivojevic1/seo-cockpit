@@ -97,7 +97,11 @@ def _run_collection(config: Config, collect_fn: Callable) -> None:
 
 
 def make_run_trigger_watcher(
-    config: Config, collect_fn: Callable, trigger_path: str
+    config: Config,
+    collect_fn: Callable,
+    trigger_path: str,
+    *,
+    config_provider: Callable[[], Config] | None = None,
 ) -> Callable[[], None]:
     """Build the watcher called on an interval by ``serve``.
 
@@ -106,7 +110,12 @@ def make_run_trigger_watcher(
     newer timestamp it runs one collection. If a run is already in progress the
     tick is skipped and the timestamp left unprocessed, so the next tick picks
     it up once the in-flight run finishes.
+
+    ``config_provider`` is resolved once per run, so dashboard site changes take
+    effect on the next trigger without a collector restart. When omitted, the
+    ``config`` captured at build time is reused (the pre-reload behavior).
     """
+    provider = config_provider or (lambda: config)
     state = {"last_seen": read_run_trigger(trigger_path)}
 
     def _watch() -> None:
@@ -120,7 +129,7 @@ def make_run_trigger_watcher(
         state["last_seen"] = current
         try:
             logger.info("manual collection trigger detected: %s", current)
-            _run_collection(config, collect_fn)
+            _run_collection(provider(), collect_fn)
         except Exception:  # noqa: BLE001 - a bad run must not kill the watcher
             logger.exception("manual-triggered collection failed")
         finally:
@@ -170,6 +179,7 @@ def build_scheduler(
     hour: int = DEFAULT_HOUR,
     minute: int = DEFAULT_MINUTE,
     trigger_path: str | None = None,
+    config_provider: Callable[[], Config] | None = None,
 ) -> BlockingScheduler:
     """Build (but do not start) a ``BlockingScheduler``.
 
@@ -186,10 +196,14 @@ def build_scheduler(
         or os.environ.get(RUN_TRIGGER_ENV)
         or DEFAULT_RUN_TRIGGER_PATH
     )
+    # Resolved once per run so dashboard add/remove/edit of sites takes effect
+    # on the next run without a collector restart. Absent a provider, the
+    # startup ``config`` is reused (pre-reload behavior, kept for tests/callers).
+    provider = config_provider or (lambda: config)
 
     def _job() -> None:
         with _run_lock:
-            _run_collection(config, collect_fn)
+            _run_collection(provider(), collect_fn)
 
     scheduler.add_job(
         _job,
@@ -199,7 +213,7 @@ def build_scheduler(
     )
 
     scheduler.add_job(
-        lambda: _digest_job(config),
+        lambda: _digest_job(provider()),
         CronTrigger(
             day_of_week=DIGEST_DAY_OF_WEEK,
             hour=DIGEST_HOUR,
@@ -211,7 +225,9 @@ def build_scheduler(
     )
 
     scheduler.add_job(
-        make_run_trigger_watcher(config, collect_fn, resolved_trigger_path),
+        make_run_trigger_watcher(
+            config, collect_fn, resolved_trigger_path, config_provider=provider
+        ),
         IntervalTrigger(seconds=RUN_TRIGGER_POLL_SECONDS),
         id="run_now_watcher",
         name="manual run trigger watcher",
@@ -510,13 +526,19 @@ def _serp(
     return 0
 
 
-def _serve(config: Config, collect_fn: Callable, scheduler_factory: Callable) -> int:
+def _serve(
+    config: Config,
+    collect_fn: Callable,
+    scheduler_factory: Callable,
+    *,
+    config_provider: Callable[[], Config] | None = None,
+) -> int:
     logger.info(
         "starting scheduler: daily incremental collection at %02d:%02d",
         DEFAULT_HOUR,
         DEFAULT_MINUTE,
     )
-    scheduler = scheduler_factory(config, collect_fn)
+    scheduler = scheduler_factory(config, collect_fn, config_provider=config_provider)
     scheduler.start()
     return 0
 
@@ -628,7 +650,12 @@ def main(
     if args.command == "run":
         return _run(config, collect_fn, backfill=args.backfill)
     if args.command == "serve":
-        return _serve(config, collect_fn, scheduler_factory)
+        # `load_config` (not the boot-time `config`) is the provider, so each
+        # scheduled/triggered run re-reads sites.yaml + user-sites.json from
+        # disk -- dashboard site changes apply without a collector restart.
+        return _serve(
+            config, collect_fn, scheduler_factory, config_provider=load_config
+        )
     if args.command == "discover":
         return _discover(config, args.site)
     if args.command == "trends":
