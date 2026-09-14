@@ -6,6 +6,7 @@ import HealthPanel from "../components/HealthPanel";
 import KpiRow from "../components/KpiRow";
 import OpportunityList from "../components/OpportunityList";
 import PendingSites from "../components/PendingSites";
+import RunNowButton from "../components/RunNowButton";
 import PortfolioTrend from "../components/PortfolioTrend";
 import type { PortfolioPoint } from "../components/PortfolioTrend";
 import SiteStrip from "../components/SiteStrip";
@@ -121,10 +122,11 @@ export default async function Home() {
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
       <header className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
         <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">SEO Cockpit</h1>
-        <div className="flex items-baseline gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             {lastCollected ? `Last collected ${lastCollected}` : "No data collected yet"}
           </p>
+          <RunNowButton />
           <Link
             href="/sites/add"
             className="text-sm text-primary underline-offset-4 hover:underline"

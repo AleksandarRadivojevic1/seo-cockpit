@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { listSiteConfigs } from "../../lib/db";
+import { writeRunTrigger } from "../../lib/runTrigger";
 import {
   readUserSites,
   validateNewSite,
@@ -76,4 +77,30 @@ export async function removeSite(formData: FormData): Promise<void> {
   const remaining = readUserSites(filePath).filter((s) => s.slug !== slug);
   writeUserSitesAtomic(filePath, remaining);
   revalidatePath("/");
+}
+
+export interface RunState {
+  ok: boolean;
+  requestedAt: string | null;
+  error: string | null;
+}
+
+/**
+ * Ask the collector to run a collection now, by writing the trigger file its
+ * watcher polls (~15s). Does not run collection itself — the collector is the
+ * only writer of the database.
+ */
+export async function requestCollectionRun(
+  _prev: RunState,
+  _formData: FormData,
+): Promise<RunState> {
+  const p = process.env.SEO_RUN_TRIGGER_PATH;
+  if (!p) return { ok: false, requestedAt: null, error: "SEO_RUN_TRIGGER_PATH is not set" };
+  try {
+    const requestedAt = writeRunTrigger(p);
+    revalidatePath("/");
+    return { ok: true, requestedAt, error: null };
+  } catch (e) {
+    return { ok: false, requestedAt: null, error: String(e) };
+  }
 }
