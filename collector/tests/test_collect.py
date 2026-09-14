@@ -12,7 +12,7 @@ from seocockpit.collect import (
 )
 from seocockpit.config import Config, Site
 from seocockpit.cwv import CwvSnapshot
-from seocockpit.db import init_db
+from seocockpit.db import init_db, upsert_totals
 from seocockpit.gsc import SearchAnalytics
 
 SITE_A = "sc-domain:alexrad.dev"
@@ -516,3 +516,41 @@ def test_country_rows_are_upserted_and_re_running_does_not_duplicate(tmp_path, c
         "SELECT site, date, country, clicks, impressions FROM country_daily"
     ).fetchall()
     assert rows == [(SITE_A, "2026-07-15", "srb", 9, 90)]
+
+
+def test_new_site_backfills_while_existing_site_is_incremental(tmp_path, conn):
+    # SITE_A already has history; SITE_B is brand new (no totals rows).
+    upsert_totals(
+        conn,
+        [{"site": SITE_A, "date": "2026-09-01", "clicks": 1,
+          "impressions": 1, "ctr": 1.0, "position": 1.0}],
+    )
+    config = _config(tmp_path)  # sites = [SITE_A, SITE_B]
+
+    calls: dict[str, tuple[str, str]] = {}
+
+    def fetch_analytics(service, property, start, end):
+        calls[property] = (start, end)
+        return _sa(property, end)
+
+    collect_once(
+        config,
+        mode="incremental",
+        conn=conn,
+        service=object(),
+        fetch_analytics=fetch_analytics,
+        fetch_cwv_fn=lambda url: None,
+        today=datetime.date(2026, 9, 14),
+    )
+
+    old_start, old_end = calls[SITE_A]
+    new_start, new_end = calls[SITE_B]
+    # Same finalization-lagged end for both.
+    assert old_end == new_end
+    # Existing site: short incremental window. New site: full backfill window.
+    old_span = (datetime.date.fromisoformat(old_end)
+                - datetime.date.fromisoformat(old_start)).days
+    new_span = (datetime.date.fromisoformat(new_end)
+                - datetime.date.fromisoformat(new_start)).days
+    assert old_span == INCREMENTAL_WINDOW_DAYS
+    assert new_span == BACKFILL_DAYS

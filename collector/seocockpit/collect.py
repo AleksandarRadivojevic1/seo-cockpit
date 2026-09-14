@@ -141,7 +141,6 @@ def collect_once(
     if fetch_cwv_fn is None:
         fetch_cwv_fn = cwv_module.fetch_cwv
 
-    start, end = _date_range(mode, today)
     # One "now" timestamp for every CWV snapshot captured in this run,
     # derived from `today` (start-of-day UTC) rather than a fresh
     # datetime.now() per site, so all snapshots in a run share one
@@ -169,6 +168,15 @@ def collect_once(
     for site in config.sites:
         run_id = db.start_run(conn, site.property)
         try:
+            # A site with no history yet backfills on this run regardless of
+            # the run's mode; one with history uses the run's mode. This makes
+            # "a brand-new site gets its history on its first scheduled run" an
+            # automatic, self-healing property, independent of how it was added
+            # (sites.yaml or the dashboard's user-sites.json).
+            effective_mode = (
+                "backfill" if db.latest_date(conn, site.property) is None else mode
+            )
+            start, end = _date_range(effective_mode, today)
             sa = fetch_analytics(service, site.property, start, end)
             db.upsert_totals(conn, sa.totals)
             db.upsert_query_daily(conn, sa.by_query)
