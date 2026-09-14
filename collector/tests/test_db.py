@@ -6,6 +6,7 @@ from seocockpit.db import (
     finish_run,
     init_db,
     insert_cwv,
+    latest_date,
     prune_demand_keywords,
     start_run,
     upsert_country_daily,
@@ -689,3 +690,22 @@ def test_prune_with_no_seeds_is_a_no_op_rather_than_deleting_everything(tmp_path
 
     assert prune_demand_keywords(conn, site, "autocomplete", []) == 0
     assert conn.execute("SELECT COUNT(*) FROM demand_keywords").fetchone()[0] == 1
+
+
+def test_latest_date_returns_none_without_rows(conn):
+    assert latest_date(conn, SITE) is None
+
+
+def test_latest_date_returns_max_date(conn):
+    upsert_totals(
+        conn,
+        [
+            {"site": SITE, "date": "2026-09-01", "clicks": 1,
+             "impressions": 2, "ctr": 0.5, "position": 3.0},
+            {"site": SITE, "date": "2026-09-05", "clicks": 1,
+             "impressions": 2, "ctr": 0.5, "position": 3.0},
+        ],
+    )
+    assert latest_date(conn, SITE) == "2026-09-05"
+    # A different site with no rows is still None.
+    assert latest_date(conn, "sc-domain:other.example") is None

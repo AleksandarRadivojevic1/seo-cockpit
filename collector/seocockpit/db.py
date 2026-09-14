@@ -330,6 +330,19 @@ def upsert_totals(conn: sqlite3.Connection, rows: Iterable[Mapping]) -> None:
     conn.commit()
 
 
+def latest_date(conn: sqlite3.Connection, property: str) -> str | None:
+    """The newest ``date`` in ``totals_daily`` for one property, or ``None``.
+
+    Mirrors the dashboard's ``latestTotalsDate`` (app/lib/db.ts). ``collect_once``
+    uses it to decide that a site with no history should backfill on its next
+    run rather than fetch only the short incremental window.
+    """
+    row = conn.execute(
+        "SELECT MAX(date) FROM totals_daily WHERE site = ?", (property,)
+    ).fetchone()
+    return row[0] if row and row[0] is not None else None
+
+
 def upsert_query_daily(conn: sqlite3.Connection, rows: Iterable[Mapping]) -> None:
     """Upsert rows into ``query_daily``, keyed on (site, date, query).
 
