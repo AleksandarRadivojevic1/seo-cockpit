@@ -1,9 +1,11 @@
+import Link from "next/link";
 import { connection } from "next/server";
 
 import EmptyState from "../components/EmptyState";
 import HealthPanel from "../components/HealthPanel";
 import KpiRow from "../components/KpiRow";
 import OpportunityList from "../components/OpportunityList";
+import PendingSites from "../components/PendingSites";
 import PortfolioTrend from "../components/PortfolioTrend";
 import type { PortfolioPoint } from "../components/PortfolioTrend";
 import SiteStrip from "../components/SiteStrip";
@@ -12,7 +14,9 @@ import { addDaysUTC, recentVsPrior, windowBounds } from "../lib/analysis/windows
 import { latestRunPerSite, listSiteConfigs, totalsInRange } from "../lib/db";
 import { buildCollectorHealth } from "../lib/health";
 import { mergeDailySeries, portfolioTotals, rankOpportunities } from "../lib/overview";
+import { classifyUserSites } from "../lib/pendingSites";
 import { buildSiteSummary } from "../lib/portfolio";
+import { readUserSites } from "../lib/userSites";
 
 /** Highest-upside queries listed on the overview. */
 const OPPORTUNITY_LIMIT = 6;
@@ -67,7 +71,17 @@ export default async function Home() {
   const configs = listSiteConfigs();
   const summaries = configs.map((config) => buildSiteSummary(config, asOf));
   const lastCollected = latestCollectedDate(summaries.map((s) => s.freshness.latestDate));
-  const health = buildCollectorHealth(latestRunPerSite(), configs, now, scheduleConfig());
+  const runs = latestRunPerSite();
+  const health = buildCollectorHealth(runs, configs, now, scheduleConfig());
+
+  // Dashboard-added sites not yet collected (or whose run failed). Collected
+  // ones are filtered out inside PendingSites and appear via SiteStrip.
+  const classifiedUserSites = classifyUserSites(
+    readUserSites(process.env.SEO_USER_SITES_PATH),
+    configs,
+    runs,
+  );
+  const hasAwaiting = classifiedUserSites.some((e) => e.status !== "collected");
 
   const { recentStart, recentEnd } = windowBounds(asOf);
   const totals = portfolioTotals(summaries);
@@ -107,16 +121,28 @@ export default async function Home() {
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
       <header className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
         <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">SEO Cockpit</h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          {lastCollected ? `Last collected ${lastCollected}` : "No data collected yet"}
-        </p>
+        <div className="flex items-baseline gap-4">
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            {lastCollected ? `Last collected ${lastCollected}` : "No data collected yet"}
+          </p>
+          <Link
+            href="/sites/add"
+            className="text-sm text-primary underline-offset-4 hover:underline"
+          >
+            Add site
+          </Link>
+        </div>
       </header>
 
       {summaries.length === 0 ? (
-        <EmptyState
-          title="No sites configured"
-          description="Add a site to collector/sites.yaml to get started."
-        />
+        hasAwaiting ? (
+          <PendingSites entries={classifiedUserSites} />
+        ) : (
+          <EmptyState
+            title="No sites configured"
+            description="Add a site to start collecting, or seed one in collector/sites.yaml."
+          />
+        )
       ) : (
         <>
           <KpiRow
@@ -148,6 +174,7 @@ export default async function Home() {
                 </h2>
                 <SiteStrip summaries={summaries} />
               </section>
+              <PendingSites entries={classifiedUserSites} />
             </div>
           </div>
         </>
