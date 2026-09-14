@@ -83,14 +83,19 @@ The service-account key and the SQLite database are never committed. See
 
 ## Status and roadmap
 
-**Phase 1 (current).** Daily GSC and CWV collection, the trends engine, and the
-dashboard views above, all on free data sources.
+**Phase 1 (shipped).** Daily GSC and CWV collection, the trends engine, and the
+dashboard views above, all on free data sources. Sites can also be added and
+removed from the dashboard itself, without editing config or redeploying.
 
-**Phase 2 (later).** Market-demand trends via Google Trends or DataForSEO to
-surface the rising demand you're *not* capturing yet, plus branded PDF report
-export and push alerts.
+**Phase 2 (shipped).** Market-demand discovery via free Google autocomplete and
+Google Trends (with optional SerpApi competitor SERP checks) to surface rising
+demand you're *not* capturing yet; a branded PDF client report; and ntfy push
+alerts plus a weekly digest. Demand seeds are chosen by hand per site rather
+than fully automated — Trends has a volume floor that drops very specific
+long-tail terms, and SerpApi is metered.
 
-**Phase 3 (optional).** Authentication and per-client login views.
+**Phase 3 (remaining, optional).** Authentication and per-client login views.
+Until then the dashboard has no auth and is reached over WireGuard only.
 
 ## License
 
