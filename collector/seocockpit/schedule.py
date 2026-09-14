@@ -16,12 +16,16 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import json
 import logging
+import os
 import sys
+import threading
 from typing import Callable
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from . import notify
 from .backup import run_backup
@@ -49,6 +53,80 @@ SCHEDULE_TIMEZONE = datetime.timezone.utc
 DIGEST_DAY_OF_WEEK = "mon"
 DIGEST_HOUR = 7
 DIGEST_MINUTE = 0
+
+# On-demand collection: the dashboard writes this file with a fresh
+# ``requested_at`` timestamp, and the serve loop's watcher job runs a
+# collection when it sees a timestamp it hasn't processed yet.
+RUN_TRIGGER_ENV = "SEO_RUN_TRIGGER_PATH"
+DEFAULT_RUN_TRIGGER_PATH = "/config/run-now.json"
+RUN_TRIGGER_POLL_SECONDS = 15
+
+# Guards ``_run_collection`` so a manual run and the nightly run (or two manual
+# runs) never execute collect_once concurrently against the same database.
+_run_lock = threading.Lock()
+
+
+def read_run_trigger(path: str) -> str | None:
+    """Return the ``requested_at`` string from the trigger file, or ``None``.
+
+    Never raises: a missing file, unreadable file, malformed JSON, or a
+    payload without a string ``requested_at`` all yield ``None`` so a bad
+    trigger can never take the scheduler down.
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return None
+    if isinstance(data, dict):
+        value = data.get("requested_at")
+        return value if isinstance(value, str) else None
+    return None
+
+
+def _run_collection(config: Config, collect_fn: Callable) -> None:
+    """One collection pass: collect, log, notify, back up. Lock-guarded by
+    callers so it never overlaps another run."""
+    results = collect_fn(config, "incremental")
+    _log_summary(results)
+    _notify_problems(results)
+    # After the run, so a snapshot always contains the day just collected.
+    # Isolated inside run_backup: a backup problem must not turn a healthy
+    # collection into a reported failure.
+    run_backup(config.db_path)
+
+
+def make_run_trigger_watcher(
+    config: Config, collect_fn: Callable, trigger_path: str
+) -> Callable[[], None]:
+    """Build the watcher called on an interval by ``serve``.
+
+    Remembers the timestamp last processed (initialized to whatever is in the
+    file at build time, so a stale trigger never fires on boot). When it sees a
+    newer timestamp it runs one collection. If a run is already in progress the
+    tick is skipped and the timestamp left unprocessed, so the next tick picks
+    it up once the in-flight run finishes.
+    """
+    state = {"last_seen": read_run_trigger(trigger_path)}
+
+    def _watch() -> None:
+        current = read_run_trigger(trigger_path)
+        if current is None or current == state["last_seen"]:
+            return
+        if not _run_lock.acquire(blocking=False):
+            return  # a run is in progress; retry on the next tick
+        # Mark processed before running so a run that raises can't loop every
+        # tick -- the operator can just press the button again.
+        state["last_seen"] = current
+        try:
+            logger.info("manual collection trigger detected: %s", current)
+            _run_collection(config, collect_fn)
+        except Exception:  # noqa: BLE001 - a bad run must not kill the watcher
+            logger.exception("manual-triggered collection failed")
+        finally:
+            _run_lock.release()
+
+    return _watch
 
 
 def _log_summary(results: list[dict]) -> None:
@@ -91,24 +169,27 @@ def build_scheduler(
     *,
     hour: int = DEFAULT_HOUR,
     minute: int = DEFAULT_MINUTE,
+    trigger_path: str | None = None,
 ) -> BlockingScheduler:
-    """Build (but do not start) a ``BlockingScheduler`` with one daily job.
+    """Build (but do not start) a ``BlockingScheduler``.
 
-    The job calls ``collect_fn(config, "incremental")`` at ``hour:minute``
-    **UTC** every day (see ``SCHEDULE_TIMEZONE``). The caller is responsible
-    for calling ``.start()`` -- this function never blocks, which keeps it
-    directly unit-testable.
+    Registers three jobs: the daily ``collect_fn(config, "incremental")`` at
+    ``hour:minute`` **UTC** (see ``SCHEDULE_TIMEZONE``), the weekly digest, and
+    a watcher that runs a collection on demand when the dashboard writes the
+    run-trigger file (``trigger_path``, else ``SEO_RUN_TRIGGER_PATH``, else the
+    default). The caller is responsible for calling ``.start()`` -- this
+    function never blocks, which keeps it directly unit-testable.
     """
     scheduler = BlockingScheduler()
+    resolved_trigger_path = (
+        trigger_path
+        or os.environ.get(RUN_TRIGGER_ENV)
+        or DEFAULT_RUN_TRIGGER_PATH
+    )
 
     def _job() -> None:
-        results = collect_fn(config, "incremental")
-        _log_summary(results)
-        _notify_problems(results)
-        # After the run, so a snapshot always contains the day just
-        # collected. Isolated inside run_backup: a backup problem must not
-        # turn a healthy collection into a reported failure.
-        run_backup(config.db_path)
+        with _run_lock:
+            _run_collection(config, collect_fn)
 
     scheduler.add_job(
         _job,
@@ -127,6 +208,17 @@ def build_scheduler(
         ),
         id="weekly_digest",
         name="weekly ntfy digest",
+    )
+
+    scheduler.add_job(
+        make_run_trigger_watcher(config, collect_fn, resolved_trigger_path),
+        IntervalTrigger(seconds=RUN_TRIGGER_POLL_SECONDS),
+        id="run_now_watcher",
+        name="manual run trigger watcher",
+        # Never let ticks stack: one in-flight check at a time, and if several
+        # are due after a long collection, collapse them into one.
+        max_instances=1,
+        coalesce=True,
     )
     return scheduler
 

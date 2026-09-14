@@ -1,6 +1,14 @@
+import json
+
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-from seocockpit.schedule import build_scheduler, main
+from seocockpit.schedule import (
+    _run_lock,
+    build_scheduler,
+    main,
+    make_run_trigger_watcher,
+    read_run_trigger,
+)
 
 
 class _DummyConfig:
@@ -130,13 +138,88 @@ def test_build_scheduler_registers_the_weekly_digest_on_monday_after_collection(
     assert str(job.trigger.timezone) == "UTC"
 
 
-def test_only_the_two_expected_jobs_are_registered():
+def test_only_the_expected_jobs_are_registered():
     config = _DummyConfig()
     scheduler = build_scheduler(config, collect_fn=lambda cfg, mode: [])
     assert {job.id for job in scheduler.get_jobs()} == {
         "daily_incremental_collection",
         "weekly_digest",
+        "run_now_watcher",
     }
+
+
+# ---------------------------------------------------------------------------
+# Run-now trigger: the dashboard writes a trigger file, the collector's
+# watcher job runs a collection when it sees a new timestamp.
+# ---------------------------------------------------------------------------
+
+
+def test_read_run_trigger_reads_requested_at(tmp_path):
+    p = tmp_path / "run-now.json"
+    p.write_text(json.dumps({"requested_at": "2026-09-14T12:00:00Z"}), encoding="utf-8")
+    assert read_run_trigger(str(p)) == "2026-09-14T12:00:00Z"
+
+
+def test_read_run_trigger_missing_or_malformed_returns_none(tmp_path):
+    assert read_run_trigger(str(tmp_path / "nope.json")) is None
+    bad = tmp_path / "bad.json"
+    bad.write_text("{ not json", encoding="utf-8")
+    assert read_run_trigger(str(bad)) is None
+
+
+def test_watcher_runs_collection_on_each_new_trigger(tmp_path):
+    p = tmp_path / "run-now.json"  # absent at build time -> last_seen is None
+    config = _DummyConfig()
+    calls = []
+    watch = make_run_trigger_watcher(
+        config, lambda cfg, mode: calls.append((cfg, mode)) or [], str(p)
+    )
+
+    watch()  # no file yet
+    assert calls == []
+
+    p.write_text(json.dumps({"requested_at": "t1"}), encoding="utf-8")
+    watch()  # new timestamp -> runs
+    assert calls == [(config, "incremental")]
+
+    watch()  # same timestamp -> no re-run
+    assert len(calls) == 1
+
+    p.write_text(json.dumps({"requested_at": "t2"}), encoding="utf-8")
+    watch()  # new again -> runs again
+    assert len(calls) == 2
+
+
+def test_watcher_does_not_fire_for_the_trigger_present_at_startup(tmp_path):
+    p = tmp_path / "run-now.json"
+    p.write_text(json.dumps({"requested_at": "t0"}), encoding="utf-8")
+    config = _DummyConfig()
+    calls = []
+    watch = make_run_trigger_watcher(
+        config, lambda cfg, mode: calls.append(mode) or [], str(p)
+    )
+    watch()  # last_seen initialized to t0 at build time -> no fire
+    assert calls == []
+
+
+def test_watcher_skips_while_a_run_is_in_progress(tmp_path):
+    p = tmp_path / "run-now.json"
+    config = _DummyConfig()
+    calls = []
+    watch = make_run_trigger_watcher(
+        config, lambda cfg, mode: calls.append(mode) or [], str(p)
+    )
+    p.write_text(json.dumps({"requested_at": "t1"}), encoding="utf-8")
+
+    assert _run_lock.acquire(blocking=False)  # simulate a run already running
+    try:
+        watch()  # lock held -> skip, do not run, do not mark seen
+        assert calls == []
+    finally:
+        _run_lock.release()
+
+    watch()  # lock free -> runs the still-pending t1
+    assert calls == ["incremental"]
 
 
 def test_a_clean_run_sends_no_notification(monkeypatch):
