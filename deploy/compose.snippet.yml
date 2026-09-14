@@ -84,6 +84,10 @@ services:
       # READ-ONLY to the collector (mounted below): the dashboard is the writer.
       # A missing file simply means no dashboard-added sites.
       SEO_USER_SITES_PATH: ${SEO_USER_SITES_PATH:-/config/user-sites.json}
+      # On-demand collection: the dashboard writes this file and the serve
+      # loop's watcher (every 15s) runs a collection when it sees a new
+      # timestamp. READ-ONLY here — the collector only reads it.
+      SEO_RUN_TRIGGER_PATH: ${SEO_RUN_TRIGGER_PATH:-/config/run-now.json}
       TZ: UTC
     volumes:
       # The database. READ-WRITE here: this is the only writer.
@@ -130,6 +134,10 @@ services:
       # collector reads (SEO_USER_SITES_PATH above), inside the :rw config mount
       # below. This is the ONE thing the dashboard writes; the DB stays :ro.
       SEO_USER_SITES_PATH: ${SEO_USER_SITES_PATH:-/config/user-sites.json}
+      # The "Run collection now" button writes this file (in the :rw config
+      # mount) to ask the collector to run immediately. Same path the collector
+      # reads (SEO_RUN_TRIGGER_PATH above).
+      SEO_RUN_TRIGGER_PATH: ${SEO_RUN_TRIGGER_PATH:-/config/run-now.json}
       # Drives the health panel's schedule-aware "is the collector running"
       # check. These MUST match the collector's actual schedule or the panel
       # will report a healthy collector as down, which trains you to ignore it.
