@@ -187,3 +187,35 @@ def fetch_search_analytics(
     return SearchAnalytics(
         totals=totals, by_query=by_query, by_page=by_page, by_country=by_country
     )
+
+
+def fetch_query_page(service, property: str, start: str, end: str) -> list[dict]:
+    """Fetch the query x page breakdown for ``property`` over [start, end].
+
+    Unlike ``fetch_search_analytics``'s per-day breakdowns, this is a single
+    aggregate over the whole window (no ``date`` dimension) -- the input to
+    cannibalization detection. Paginates like the others via
+    ``_query_all_rows``. Returns DB-ready dicts with no ``date`` key.
+    """
+    body = {
+        "startDate": start,
+        "endDate": end,
+        "rowLimit": _ROW_LIMIT,
+        "dataState": "final",
+        "dimensions": ["query", "page"],
+    }
+    rows = []
+    for row in _query_all_rows(service, property, body):
+        query, page = row["keys"]
+        rows.append(
+            {
+                "site": property,
+                "query": query,
+                "page": page,
+                "clicks": row.get("clicks", 0),
+                "impressions": row.get("impressions", 0),
+                "ctr": row.get("ctr", 0.0),
+                "position": row.get("position", 0.0),
+            }
+        )
+    return rows
