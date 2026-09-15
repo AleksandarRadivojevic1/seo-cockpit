@@ -26,6 +26,15 @@ _RETRYABLE_STATUSES = {429, 503}
 _MAX_ATTEMPTS = 5
 _BASE_BACKOFF_SECONDS = 1.0
 
+# Permission levels ``sites().list()`` reports for which the account can
+# actually run a Search Analytics query. ``siteUnverifiedUser`` -- a property
+# the account has been offered but not verified on -- is excluded: it appears
+# in the listing but 403s on any data query, so treating it as accessible
+# would reproduce the very trap this validation exists to prevent.
+_USABLE_PERMISSION_LEVELS = frozenset(
+    {"siteOwner", "siteFullUser", "siteRestrictedUser"}
+)
+
 
 @dataclass(frozen=True)
 class SearchAnalytics:
@@ -52,6 +61,28 @@ def build_service(service_account_path: str):
         service_account_path, scopes=_SCOPES
     )
     return build("searchconsole", "v1", credentials=creds)
+
+
+def list_properties(service) -> list[str]:
+    """Return the GSC properties the service account can actually read.
+
+    Calls ``sites().list()`` and keeps each ``siteUrl`` whose
+    ``permissionLevel`` grants query access (see
+    ``_USABLE_PERMISSION_LEVELS``). This is the authoritative set the dashboard
+    validates an add-site property against -- the dashboard holds no Google
+    credentials, so the collector publishes this list for it (see
+    ``seocockpit.properties``).
+
+    ``service`` is injected (as built by ``build_service``) so tests can pass a
+    mock. Retries on 429/503 via ``_execute_with_retry``.
+    """
+    response = _execute_with_retry(service.sites().list())
+    entries = response.get("siteEntry", [])
+    return [
+        entry["siteUrl"]
+        for entry in entries
+        if entry.get("permissionLevel") in _USABLE_PERMISSION_LEVELS
+    ]
 
 
 def _execute_with_retry(request) -> dict:

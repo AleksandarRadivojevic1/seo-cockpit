@@ -3,9 +3,15 @@
 import { useActionState, useState } from "react";
 
 import { Button } from "../../../components/ui/button";
-import { addSite, type AddSiteState } from "../actions";
+import {
+  addSite,
+  refreshProperties,
+  type AddSiteState,
+  type RefreshState,
+} from "../actions";
 
 const INITIAL: AddSiteState = { errors: {}, ok: false };
+const INITIAL_REFRESH: RefreshState = { ok: false, requestedAt: null, error: null };
 
 const inputClass =
   "h-8 w-full rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -34,17 +40,22 @@ function Field({
 
 export default function AddSiteForm() {
   const [state, formAction, pending] = useActionState(addSite, INITIAL);
+  const [refreshState, refreshAction, refreshing] = useActionState(
+    refreshProperties,
+    INITIAL_REFRESH,
+  );
   const [displayName, setDisplayName] = useState("");
   const [slug, setSlug] = useState("");
   const [property, setProperty] = useState("");
   const [brandToken, setBrandToken] = useState("");
 
   return (
+    <>
     <form action={formAction} className="flex flex-col gap-4">
       <Field
         label="Search Console property"
         error={state.errors.property}
-        hint="Must match Search Console exactly: a domain property (sc-domain:example.com) or a URL-prefix property ending in / (https://example.com/). The service account must already have access, or the next nightly run will fail."
+        hint="Must match Search Console exactly: a domain property (sc-domain:example.com) or a URL-prefix property ending in / (https://example.com/). Checked against the properties the service account can read — grant it access in Search Console first."
       >
         <input
           name="property"
@@ -132,6 +143,28 @@ export default function AddSiteForm() {
         </Button>
       </div>
     </form>
+
+    <form action={refreshAction} className="mt-4 border-t border-border pt-4">
+      <p className="text-xs text-muted-foreground">
+        Just granted the service account access in Search Console? The access
+        check runs against a list the collector refreshes each night. Refresh it
+        now, wait a few seconds, then add the site.
+      </p>
+      <div className="mt-2 flex items-center gap-3">
+        <Button type="submit" variant="outline" size="sm" disabled={refreshing}>
+          {refreshing ? "Refreshing…" : "Refresh access list"}
+        </Button>
+        {refreshState.ok ? (
+          <span className="text-xs text-muted-foreground">
+            Asked the collector to refresh. Try adding again in a few seconds.
+          </span>
+        ) : null}
+        {refreshState.error ? (
+          <span className="text-xs text-destructive">{refreshState.error}</span>
+        ) : null}
+      </div>
+    </form>
+    </>
   );
 }
 

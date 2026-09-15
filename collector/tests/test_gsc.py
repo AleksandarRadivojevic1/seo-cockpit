@@ -395,3 +395,52 @@ def test_fetch_query_page_returns_pairs_without_date():
         {"site": "sc-domain:x", "query": "kontaktna sociva", "page": "https://x/b", "clicks": 0, "impressions": 20, "ctr": 0.0, "position": 8.0},
     ]
     assert service._sa.bodies[0]["dimensions"] == ["query", "page"]
+
+
+# ---------------------------------------------------------------------------
+# list_properties: the set of GSC properties the service account can read,
+# published for the dashboard's add-site validation (T2.7).
+# ---------------------------------------------------------------------------
+
+
+def _sites_list_service(response):
+    service = MagicMock()
+    service.sites.return_value.list.return_value = MagicMock(
+        execute=MagicMock(return_value=response)
+    )
+    return service
+
+
+def test_list_properties_returns_usable_site_urls():
+    service = _sites_list_service(
+        {
+            "siteEntry": [
+                {"siteUrl": "sc-domain:alexrad.dev", "permissionLevel": "siteOwner"},
+                {"siteUrl": "https://skedio.rs/", "permissionLevel": "siteFullUser"},
+                {"siteUrl": "sc-domain:restricted.rs", "permissionLevel": "siteRestrictedUser"},
+            ]
+        }
+    )
+    assert _gsc.list_properties(service) == [
+        "sc-domain:alexrad.dev",
+        "https://skedio.rs/",
+        "sc-domain:restricted.rs",
+    ]
+
+
+def test_list_properties_drops_unverified_properties():
+    # An unverified property appears in the listing but 403s on any query, so
+    # it must not be reported as accessible.
+    service = _sites_list_service(
+        {
+            "siteEntry": [
+                {"siteUrl": "https://good.rs/", "permissionLevel": "siteOwner"},
+                {"siteUrl": "https://offered.rs/", "permissionLevel": "siteUnverifiedUser"},
+            ]
+        }
+    )
+    assert _gsc.list_properties(service) == ["https://good.rs/"]
+
+
+def test_list_properties_handles_an_empty_account():
+    assert _gsc.list_properties(_sites_list_service({})) == []

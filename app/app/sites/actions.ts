@@ -2,6 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 
+import {
+  checkProperty,
+  readAccessibleProperties,
+} from "../../lib/accessibleProperties";
 import { listSiteConfigs } from "../../lib/db";
 import { writeRunTrigger } from "../../lib/runTrigger";
 import {
@@ -66,6 +70,44 @@ export async function addSite(
 
   if (!site) return { errors, ok: false };
 
+  // Verify the service account can actually read this property, against the
+  // list the collector publishes (the dashboard holds no Google credentials).
+  // This turns the old "accepted, then 403 a day later at the next run" trap
+  // into an actionable error in the form.
+  const accessible = readAccessibleProperties(
+    process.env.SEO_ACCESSIBLE_PROPERTIES_PATH,
+  );
+  const check = checkProperty(site.property, accessible);
+  if (check.state === "suggest") {
+    return {
+      errors: {
+        property:
+          `The service account can't access ${site.property}, but it can ` +
+          `access ${check.suggestion}. Search Console treats the URL-prefix ` +
+          `and domain forms as different properties — did you mean ` +
+          `${check.suggestion}?`,
+      },
+      ok: false,
+    };
+  }
+  if (check.state === "not-found") {
+    const when = accessible?.fetchedAt
+      ? `list checked ${accessible.fetchedAt}`
+      : "list not yet fetched";
+    return {
+      errors: {
+        property:
+          `The service account can't access this property. Grant it access ` +
+          `in Search Console, then use Refresh below and try again (${when}).`,
+      },
+      ok: false,
+    };
+  }
+  // "ok" and "unavailable" both proceed. "unavailable" (the collector has not
+  // published the list yet) is a deliberate soft-allow: it falls back to the
+  // previous behaviour and lets the first run confirm access, rather than
+  // blocking every add before the list ever exists.
+
   writeUserSitesAtomic(filePath, [...existing, site]);
   revalidatePath("/");
   return { errors: {}, ok: true };
@@ -99,6 +141,34 @@ export async function requestCollectionRun(
   try {
     const requestedAt = writeRunTrigger(p);
     revalidatePath("/");
+    return { ok: true, requestedAt, error: null };
+  } catch (e) {
+    return { ok: false, requestedAt: null, error: String(e) };
+  }
+}
+
+export interface RefreshState {
+  ok: boolean;
+  requestedAt: string | null;
+  error: string | null;
+}
+
+/**
+ * Ask the collector to republish the accessible-property list, by writing the
+ * refresh-trigger file its watcher polls (~15s). Used after granting the
+ * service account access in Search Console, so the add-site check sees the new
+ * property without waiting for a full nightly run. Same fire-and-forget shape
+ * as requestCollectionRun; the operator retries the add a moment later.
+ */
+export async function refreshProperties(
+  _prev: RefreshState,
+  _formData: FormData,
+): Promise<RefreshState> {
+  const p = process.env.SEO_REFRESH_TRIGGER_PATH;
+  if (!p)
+    return { ok: false, requestedAt: null, error: "SEO_REFRESH_TRIGGER_PATH is not set" };
+  try {
+    const requestedAt = writeRunTrigger(p);
     return { ok: true, requestedAt, error: null };
   } catch (e) {
     return { ok: false, requestedAt: null, error: String(e) };

@@ -31,6 +31,7 @@ from . import notify
 from .backup import run_backup
 from .collect import collect_once
 from .config import Config, load_config
+from .properties import refresh_accessible_properties
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,14 @@ RUN_TRIGGER_ENV = "SEO_RUN_TRIGGER_PATH"
 DEFAULT_RUN_TRIGGER_PATH = "/config/run-now.json"
 RUN_TRIGGER_POLL_SECONDS = 15
 
+# On-demand accessible-property refresh: the dashboard's add-site "Refresh"
+# button writes this file, and the watcher publishes a fresh sites().list()
+# without running a full collection -- so the form gets an up-to-date property
+# list in seconds after the operator grants the service account access.
+REFRESH_TRIGGER_ENV = "SEO_REFRESH_TRIGGER_PATH"
+DEFAULT_REFRESH_TRIGGER_PATH = "/config/refresh-properties.json"
+REFRESH_TRIGGER_POLL_SECONDS = 15
+
 # Guards ``_run_collection`` so a manual run and the nightly run (or two manual
 # runs) never execute collect_once concurrently against the same database.
 _run_lock = threading.Lock()
@@ -87,6 +96,11 @@ def read_run_trigger(path: str) -> str | None:
 def _run_collection(config: Config, collect_fn: Callable) -> None:
     """One collection pass: collect, log, notify, back up. Lock-guarded by
     callers so it never overlaps another run."""
+    # Refresh the accessible-property list every run so the dashboard's
+    # add-site validation stays current for free. Isolated inside
+    # refresh_accessible_properties (never raises), and dormant unless the
+    # publish path is configured, so it can't affect a run.
+    refresh_accessible_properties(config)
     results = collect_fn(config, "incremental")
     _log_summary(results)
     _notify_problems(results)
@@ -138,6 +152,39 @@ def make_run_trigger_watcher(
     return _watch
 
 
+def make_refresh_trigger_watcher(
+    config: Config,
+    trigger_path: str,
+    *,
+    config_provider: Callable[[], Config] | None = None,
+    refresh_fn: Callable = refresh_accessible_properties,
+) -> Callable[[], None]:
+    """Build the accessible-property refresh watcher for ``serve``.
+
+    Mirrors ``make_run_trigger_watcher`` but its action is only a single
+    ``sites().list()`` publish -- no collection, no database write -- so it
+    needs no run lock and returns in seconds. Reuses ``read_run_trigger``
+    because the trigger payload shape (``{"requested_at": ...}``) is identical.
+    """
+    provider = config_provider or (lambda: config)
+    state = {"last_seen": read_run_trigger(trigger_path)}
+
+    def _watch() -> None:
+        current = read_run_trigger(trigger_path)
+        if current is None or current == state["last_seen"]:
+            return
+        # Marked processed before running: a refresh that raises must not loop
+        # every tick. The operator can just press Refresh again.
+        state["last_seen"] = current
+        try:
+            logger.info("accessible-properties refresh trigger detected: %s", current)
+            refresh_fn(provider())
+        except Exception:  # noqa: BLE001 - a bad refresh must not kill the watcher
+            logger.exception("triggered property refresh failed")
+
+    return _watch
+
+
 def _log_summary(results: list[dict]) -> None:
     """Log one line per site plus a totals line, at INFO."""
     for r in results:
@@ -179,6 +226,7 @@ def build_scheduler(
     hour: int = DEFAULT_HOUR,
     minute: int = DEFAULT_MINUTE,
     trigger_path: str | None = None,
+    refresh_trigger_path: str | None = None,
     config_provider: Callable[[], Config] | None = None,
 ) -> BlockingScheduler:
     """Build (but do not start) a ``BlockingScheduler``.
@@ -233,6 +281,22 @@ def build_scheduler(
         name="manual run trigger watcher",
         # Never let ticks stack: one in-flight check at a time, and if several
         # are due after a long collection, collapse them into one.
+        max_instances=1,
+        coalesce=True,
+    )
+
+    resolved_refresh_path = (
+        refresh_trigger_path
+        or os.environ.get(REFRESH_TRIGGER_ENV)
+        or DEFAULT_REFRESH_TRIGGER_PATH
+    )
+    scheduler.add_job(
+        make_refresh_trigger_watcher(
+            config, resolved_refresh_path, config_provider=provider
+        ),
+        IntervalTrigger(seconds=REFRESH_TRIGGER_POLL_SECONDS),
+        id="refresh_properties_watcher",
+        name="accessible-properties refresh trigger watcher",
         max_instances=1,
         coalesce=True,
     )

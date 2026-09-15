@@ -6,6 +6,7 @@ from seocockpit.schedule import (
     _run_lock,
     build_scheduler,
     main,
+    make_refresh_trigger_watcher,
     make_run_trigger_watcher,
     read_run_trigger,
 )
@@ -145,6 +146,7 @@ def test_only_the_expected_jobs_are_registered():
         "daily_incremental_collection",
         "weekly_digest",
         "run_now_watcher",
+        "refresh_properties_watcher",
     }
 
 
@@ -220,6 +222,60 @@ def test_watcher_skips_while_a_run_is_in_progress(tmp_path):
 
     watch()  # lock free -> runs the still-pending t1
     assert calls == ["incremental"]
+
+
+# ---------------------------------------------------------------------------
+# Refresh trigger: the dashboard's add-site "Refresh" button writes a trigger
+# file; the watcher republishes the accessible-property list without running a
+# full collection.
+# ---------------------------------------------------------------------------
+
+
+def test_refresh_watcher_publishes_on_each_new_trigger(tmp_path):
+    p = tmp_path / "refresh-properties.json"  # absent at build -> last_seen None
+    config = _DummyConfig()
+    calls = []
+    watch = make_refresh_trigger_watcher(
+        config, str(p), refresh_fn=lambda cfg: calls.append(cfg)
+    )
+
+    watch()  # no file yet
+    assert calls == []
+
+    p.write_text(json.dumps({"requested_at": "t1"}), encoding="utf-8")
+    watch()  # new timestamp -> refreshes
+    assert calls == [config]
+
+    watch()  # same timestamp -> no re-run
+    assert len(calls) == 1
+
+    p.write_text(json.dumps({"requested_at": "t2"}), encoding="utf-8")
+    watch()  # new again -> refreshes again
+    assert len(calls) == 2
+
+
+def test_refresh_watcher_does_not_fire_for_the_trigger_present_at_startup(tmp_path):
+    p = tmp_path / "refresh-properties.json"
+    p.write_text(json.dumps({"requested_at": "t0"}), encoding="utf-8")
+    calls = []
+    watch = make_refresh_trigger_watcher(
+        _DummyConfig(), str(p), refresh_fn=lambda cfg: calls.append(cfg)
+    )
+    watch()  # last_seen initialized to t0 -> no fire
+    assert calls == []
+
+
+def test_refresh_watcher_survives_a_raising_refresh(tmp_path):
+    p = tmp_path / "refresh-properties.json"
+
+    def _boom(_cfg):
+        raise RuntimeError("gsc down")
+
+    watch = make_refresh_trigger_watcher(_DummyConfig(), str(p), refresh_fn=_boom)
+    p.write_text(json.dumps({"requested_at": "t1"}), encoding="utf-8")
+    watch()  # must not raise; the trigger is marked processed so it won't loop
+    p.write_text(json.dumps({"requested_at": "t2"}), encoding="utf-8")
+    watch()  # still alive on the next trigger
 
 
 def test_a_clean_run_sends_no_notification(monkeypatch):

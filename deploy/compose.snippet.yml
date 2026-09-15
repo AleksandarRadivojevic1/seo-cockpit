@@ -88,6 +88,16 @@ services:
       # loop's watcher (every 15s) runs a collection when it sees a new
       # timestamp. READ-ONLY here — the collector only reads it.
       SEO_RUN_TRIGGER_PATH: ${SEO_RUN_TRIGGER_PATH:-/config/run-now.json}
+      # Accessible-property list, published each run + on the refresh trigger.
+      # WRITTEN here (in the :rw data mount, container path /app/data), read by
+      # the dashboard's add-site check from its :ro data mount. The dashboard
+      # sees the same file at /data — hence the two services set different
+      # container paths for the same host file, exactly like SEO_DB_PATH.
+      SEO_ACCESSIBLE_PROPERTIES_PATH: ${SEO_ACCESSIBLE_PROPERTIES_COLLECTOR_PATH:-/app/data/accessible-properties.json}
+      # On-demand property refresh: the dashboard's "Refresh access list" button
+      # writes this file and the serve loop's watcher (every 15s) republishes
+      # the list. READ-ONLY here — the collector only reads it.
+      SEO_REFRESH_TRIGGER_PATH: ${SEO_REFRESH_TRIGGER_PATH:-/config/refresh-properties.json}
       TZ: UTC
     volumes:
       # The database. READ-WRITE here: this is the only writer.
@@ -138,6 +148,14 @@ services:
       # mount) to ask the collector to run immediately. Same path the collector
       # reads (SEO_RUN_TRIGGER_PATH above).
       SEO_RUN_TRIGGER_PATH: ${SEO_RUN_TRIGGER_PATH:-/config/run-now.json}
+      # The add-site form validates a property against this list (published by
+      # the collector, container path /data here — its :ro data mount). Missing
+      # file means "unverified", which soft-allows the add rather than blocking.
+      SEO_ACCESSIBLE_PROPERTIES_PATH: ${SEO_ACCESSIBLE_PROPERTIES_DASHBOARD_PATH:-/data/accessible-properties.json}
+      # The "Refresh access list" button writes this file (in the :rw config
+      # mount) to ask the collector to republish the list. Same path the
+      # collector reads (SEO_REFRESH_TRIGGER_PATH above).
+      SEO_REFRESH_TRIGGER_PATH: ${SEO_REFRESH_TRIGGER_PATH:-/config/refresh-properties.json}
       # Drives the health panel's schedule-aware "is the collector running"
       # check. These MUST match the collector's actual schedule or the panel
       # will report a healthy collector as down, which trains you to ignore it.
