@@ -6,6 +6,7 @@ import BrandBandChart from "../../../components/BrandBandChart";
 import BrandRing from "../../../components/BrandRing";
 import CountryMap from "../../../components/CountryMap";
 import CwvPanel from "../../../components/CwvPanel";
+import Cannibalization from "../../../components/Cannibalization";
 import DemandGaps from "../../../components/DemandGaps";
 import SerpCompetitors from "../../../components/SerpCompetitors";
 import EmptyState from "../../../components/EmptyState";
@@ -21,6 +22,7 @@ import { Badge } from "../../../components/ui/badge";
 import { brandSeries, buildBrandBandSeries } from "../../../lib/analysis/brand";
 import { buildBrandBreakdown, topPages } from "../../../lib/analysis/breakdown";
 import { buildCountryBreakdown } from "../../../lib/analysis/geography";
+import { buildCannibalization } from "../../../lib/analysis/cannibalization";
 import { buildDemandBreakdown } from "../../../lib/analysis/demand";
 import { ownDomainFor } from "../../../lib/analysis/serp";
 import { deriveSignals } from "../../../lib/analysis/signals";
@@ -30,6 +32,7 @@ import {
   demandKeywords,
   latestCwv,
   pageRowsInRange,
+  queryPageSnapshot,
   queryRowsInRange,
   serpChecks,
   siteConfigBySlug,
@@ -163,6 +166,7 @@ export default async function SitePage({
   );
   const demand = buildDemandBreakdown(demandKeywords(config.property), everRanked);
   const serp = serpChecks(config.property);
+  const cannibalization = buildCannibalization(queryPageSnapshot(config.property));
 
   const countries = buildCountryBreakdown(
     countryRowsInRange(config.property, recentStart, recentEnd)
@@ -365,6 +369,17 @@ export default async function SitePage({
           displaced.
         </p>
         <SerpCompetitors checks={serp} ownDomain={ownDomainFor(config.property)} />
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
+        <h2 className="pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          Cannibalization
+        </h2>
+        <p className="pb-3 text-xs text-muted-foreground/70">
+          Queries where more than one of this site&apos;s pages compete, splitting clicks and
+          impressions. Consolidate toward the page that should win.
+        </p>
+        <Cannibalization breakdown={cannibalization} />
       </section>
 
       <section className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
