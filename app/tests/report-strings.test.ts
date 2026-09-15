@@ -32,7 +32,7 @@ describe("Serbian report strings", () => {
   });
 
   it("names the agency and its site for the header", () => {
-    expect(SR.author).toBe("Deimos Agency");
+    expect(SR.author).toBe("Aleksandar Radivojević, Deimos Agency");
     expect(SR.authorSite).toBe("deimos.agency");
   });
 

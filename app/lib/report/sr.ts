@@ -17,7 +17,7 @@
 export const SR = {
   docTitle: "SEO izveštaj",
   preparedBy: "Izveštaj pripremio",
-  author: "Deimos Agency",
+  author: "Aleksandar Radivojević, Deimos Agency",
   authorSite: "deimos.agency",
   period: "Period",
   print: "Sačuvaj kao PDF",
