@@ -47,6 +47,43 @@ function Caret({ up }: { up: boolean }) {
   );
 }
 
+/** One before→after line in the growth section. A percentage rides along for
+ *  clicks and impressions; a zero baseline shows "novo" instead of an infinite
+ *  number. Position passes `deltaPct: undefined` — its direction is carried by
+ *  the numbers alone, since a "−60%" on a rank that improved reads as a loss. */
+function GrowthRow({
+  label,
+  before,
+  after,
+  deltaPct,
+}: {
+  label: string;
+  before: string;
+  after: string;
+  deltaPct?: number | null;
+}) {
+  return (
+    <div className="rb-growth-row">
+      <span className="lbl">{label}</span>
+      <span className="val">
+        <span className="from">{before}</span>
+        <span className="arw">→</span>
+        {after}
+      </span>
+      <span className="chg">
+        {deltaPct === undefined ? null : deltaPct === null ? (
+          <span className="rb-delta">{SR.growthNew}</span>
+        ) : deltaPct === 0 ? null : (
+          <span className={`rb-delta${deltaPct > 0 ? " up" : ""}`}>
+            <Caret up={deltaPct > 0} />
+            {formatPercentSr(Math.abs(deltaPct) / 100)}
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -200,6 +237,51 @@ export default async function ReportPage({
                   </p>
                 )
               )}
+        </section>
+
+        <section className="mb-8 break-inside-avoid">
+          <h2 className="rb-sec">{SR.growth}</h2>
+          {d.growth === null ? (
+            <p className="text-sm text-neutral-500">{SR.growthEmpty}</p>
+          ) : (
+            <>
+              <p className="mb-4 text-sm text-neutral-600">
+                {SR.growthLead(
+                  `${formatIntSr(Math.round(d.growth.durationDays / 30))} ${pluralSr(
+                    Math.round(d.growth.durationDays / 30),
+                    SR.months
+                  )}`
+                )}
+              </p>
+              <div className="rb-growth">
+                <GrowthRow
+                  label={SR.growthClicks}
+                  before={formatIntSr(d.growth.clicks.before)}
+                  after={formatIntSr(d.growth.clicks.after)}
+                  deltaPct={d.growth.clicks.deltaPct}
+                />
+                <GrowthRow
+                  label={SR.growthImpressions}
+                  before={formatIntSr(d.growth.impressions.before)}
+                  after={formatIntSr(d.growth.impressions.after)}
+                  deltaPct={d.growth.impressions.deltaPct}
+                />
+                <GrowthRow
+                  label={SR.growthPosition}
+                  before={
+                    d.growth.position.before === null
+                      ? "—"
+                      : formatDecimalSr(d.growth.position.before)
+                  }
+                  after={
+                    d.growth.position.after === null
+                      ? "—"
+                      : formatDecimalSr(d.growth.position.after)
+                  }
+                />
+              </div>
+            </>
+          )}
         </section>
 
         <section className="mb-8 break-inside-avoid">

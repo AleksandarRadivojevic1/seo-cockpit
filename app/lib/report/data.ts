@@ -1,6 +1,8 @@
 import type Database from "better-sqlite3";
 
 import { buildBrandBreakdown, topPages } from "../analysis/breakdown";
+import { computeGrowth } from "./growth";
+import type { GrowthResult } from "./growth";
 import { buildDemandBreakdown } from "../analysis/demand";
 import { ownDomainFor, rankCompetitors, serpState } from "../analysis/serp";
 import { deriveSignals } from "../analysis/signals";
@@ -61,6 +63,12 @@ export interface ReportData {
   competitors: DomainTally[];
   serpState: SerpState;
   cwv: CwvRow | null;
+  /**
+   * The engagement-long before/after story, or `null` when there is too
+   * little history for an honest comparison. Independent of the rolling
+   * window above: this looks across everything ever collected.
+   */
+  growth: GrowthResult | null;
 }
 
 /**
@@ -114,6 +122,12 @@ export function buildReportData(
 
   const checks = serpChecks(config.property, db);
 
+  // Growth looks across all collected history, not the rolling window, so the
+  // "before" baseline sits at the true start of the engagement.
+  const growth = computeGrowth(
+    totalsInRange(config.property, "0000-01-01", recentEnd, db)
+  );
+
   return {
     siteName: config.displayName,
     property: config.property,
@@ -155,5 +169,6 @@ export function buildReportData(
     competitors: rankCompetitors(checks, ownDomainFor(config.property)),
     serpState: serpState(checks),
     cwv: latestCwv(config.property, db),
+    growth,
   };
 }

@@ -367,6 +367,15 @@
 .rb-delta { font-size: 11.5px; margin-top: 6px; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 5px; color: var(--rpt-soft); }
 .rb-delta.up { color: var(--rpt-accent); }
 .rb-lead { font-size: 13px; color: var(--rpt-soft); line-height: 1.55; margin: 0 0 14px; max-width: 64ch; }
+/* Growth: the engagement-long before→after story. Big "from → to" numbers,
+   the baseline muted so "now" reads as the result, with the delta chip reused. */
+.rb-growth { border-top: 1px solid var(--rpt-line); }
+.rb-growth-row { display: flex; align-items: baseline; gap: 18px; padding: 12px 0; border-bottom: 1px solid var(--rpt-line); }
+.rb-growth-row .lbl { flex: 0 0 auto; width: 132px; font-size: 12px; letter-spacing: 0.01em; color: var(--rpt-soft); }
+.rb-growth-row .val { flex: 1; font-size: 21px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.rb-growth-row .val .from { color: var(--rpt-faint); font-weight: 600; }
+.rb-growth-row .val .arw { color: var(--rpt-faint); font-weight: 400; margin: 0 9px; }
+.rb-growth-row .chg { flex: 0 0 auto; align-self: center; }
 .rb-pos { display: inline-block; min-width: 30px; text-align: center; padding: 2px 8px; border-radius: 4px; background: var(--rpt-cream); color: var(--rpt-accent); font-weight: 600; font-variant-numeric: tabular-nums; }
 .rb-foot { margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--rpt-line); display: flex; justify-content: space-between; font-size: 11px; color: var(--rpt-faint); }
 .rb-foot a { color: var(--rpt-accent); text-decoration: none; }

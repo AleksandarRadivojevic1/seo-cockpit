@@ -32,6 +32,25 @@ export const SR = {
   keywords: ["ključna reč", "ključne reči", "ključnih reči"] as [string, string, string],
   avgPosition: "prosečna pozicija",
 
+  growth: "Napredak",
+  /** [one, few, other] for "mesec" — see pluralSr. */
+  months: ["mesec", "meseca", "meseci"] as [string, string, string],
+  growthLead: (duration: string) =>
+    `Za ${duration} saradnje, ovako su se ključni pokazatelji promenili od početka do danas.`,
+  /**
+   * Too little history for two non-overlapping windows. Stated, not dropped —
+   * the same honesty rule that governs noPrior: an absent comparison is named.
+   */
+  growthEmpty:
+    "Još nema dovoljno istorije za prikaz napretka — potrebna su bar dva meseca prikupljenih podataka.",
+  growthClicks: "Klikovi",
+  growthImpressions: "Prikazi",
+  growthPosition: "Prosečna pozicija",
+  growthBefore: "na početku",
+  growthAfter: "danas",
+  /** Growth from a zero baseline: shown as before→after with no percentage. */
+  growthNew: "novo",
+
   /**
    * Phrased so the date stays in the nominative case. Serbian would want a
    * genitive after "počelo" ("7. jula"), and `Intl` only gives the
