@@ -35,25 +35,6 @@ function pathOf(url: string): string {
   }
 }
 
-/** The Deimos octagon mark, drawn (never a glyph). `light` is the on-paper
- *  variant for the running header; the default is the dark-cover variant. */
-function Mark({ size = 30, light = false }: { size?: number; light?: boolean }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <path
-        d="M16 1.6 27 7.2v11.2L16 30.4 5 18.4V7.2z"
-        fill={light ? "#f2ede3" : "#1b1c1e"}
-        stroke={light ? "#d9d2c6" : "#3a3c40"}
-        strokeWidth="1"
-      />
-      {!light && <path d="M16 1.6 27 7.2 16 13 5 7.2z" fill="#242628" />}
-      {!light && <path d="M16 13v17.4L5 18.4V7.2z" fill="#141517" />}
-      <path d="M16 6.4l6 3.1-6 3.2-6-3.2z" fill="#c1440e" />
-      {!light && <circle cx="16" cy="9.6" r="1.5" fill="#ff6b2c" />}
-    </svg>
-  );
-}
-
 /** Directional caret for a metric delta — a drawn mark, not a ▲/▼ glyph. */
 function Caret({ up }: { up: boolean }) {
   return (
@@ -124,8 +105,7 @@ export default async function ReportPage({
       {/* Page 1 — dark branded cover (full-bleed in print via @page cover). */}
       <div className="report-cover">
         <div className="rc-brand">
-          <Mark size={30} />
-          <span className="rc-wordmark">DEIMOS</span>
+          <span className="deimos-logo rc-logo" role="img" aria-label="Deimos" />
         </div>
         <div className="rc-mid">
           <div className="rc-doctype">{SR.docTitle}</div>
@@ -150,8 +130,7 @@ export default async function ReportPage({
       <div className="report-body">
         <div className="rb-head">
           <div className="wm">
-            <Mark size={20} light />
-            <span className="wtext">DEIMOS</span>
+            <span className="deimos-logo rb-logo" role="img" aria-label="Deimos" />
           </div>
           <div className="pg">
             {d.siteName} · {SR.docTitle} · {period}

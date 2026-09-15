@@ -328,7 +328,20 @@
 }
 .report-cover > * { position: relative; }
 .rc-brand { display: flex; align-items: center; gap: 12px; }
-.rc-wordmark { font-weight: 700; letter-spacing: 0.34em; font-size: 15px; padding-left: 2px; color: #f4f2ee; }
+/* The real Deimos wordmark (serif letters, wireframe-moon "O"), traced vector.
+   One asset serves both surfaces: a CSS mask paints it in currentColor, cream
+   on the dark cover and ink on the light body, so it never needs a second file
+   or a raster. print-color-adjust keeps the mask fill from being dropped. */
+.deimos-logo {
+  display: inline-block;
+  background-color: currentColor;
+  -webkit-mask: url(/deimos-logo.svg) left center / contain no-repeat;
+  mask: url(/deimos-logo.svg) left center / contain no-repeat;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+.rc-logo { width: 171px; height: 36px; color: #f4f2ee; }
+.rb-logo { width: 95px; height: 20px; color: var(--rpt-ink); }
 .rc-mid { margin-top: auto; margin-bottom: auto; padding: 18mm 0; }
 .rc-doctype { font-size: 12px; letter-spacing: 0.26em; text-transform: uppercase; color: #94979e; margin-bottom: 20px; }
 .rc-client { font-size: 58px; line-height: 0.98; font-weight: 600; letter-spacing: -0.03em; margin: 0; color: #fff; }
@@ -343,7 +356,6 @@
 .report-body { padding: 20mm 24mm 18mm; }
 .rb-head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--rpt-line); margin-bottom: 28px; }
 .rb-head .wm { display: flex; align-items: center; gap: 9px; }
-.rb-head .wm .wtext { font-weight: 700; letter-spacing: 0.28em; font-size: 11px; color: var(--rpt-ink); }
 .rb-head .pg { font-size: 11px; color: var(--rpt-faint); letter-spacing: 0.04em; }
 .report h2.rb-sec { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--rpt-accent); margin: 0 0 16px; display: flex; align-items: center; gap: 10px; }
 .report h2.rb-sec::after { content: ""; flex: 1; height: 1px; background: var(--rpt-line); }
