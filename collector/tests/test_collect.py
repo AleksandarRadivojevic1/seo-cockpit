@@ -112,6 +112,7 @@ def test_one_site_failing_does_not_abort_others(tmp_path, conn):
         service=object(),
         fetch_analytics=fetch_analytics,
         fetch_cwv_fn=fetch_cwv_fn,
+        fetch_query_page_fn=lambda *a: [],
         today=datetime.date(2026, 7, 24),
     )
 
@@ -554,3 +555,63 @@ def test_new_site_backfills_while_existing_site_is_incremental(tmp_path, conn):
                 - datetime.date.fromisoformat(new_start)).days
     assert old_span == INCREMENTAL_WINDOW_DAYS
     assert new_span == BACKFILL_DAYS
+
+
+# ---------------------------------------------------------------------------
+# query x page snapshot: written each run, isolated per site like CWV.
+# ---------------------------------------------------------------------------
+
+
+def test_collect_writes_query_page_snapshot(tmp_path, conn):
+    config = _config(
+        tmp_path, sites=[Site(property=SITE_A, slug="site-a", display_name="A", brand_token="a")]
+    )
+    captured = {}
+
+    def fetch_query_page_fn(service, property, start, end):
+        captured["window"] = (start, end)
+        return [
+            {"site": property, "query": "q", "page": "p1", "clicks": 1, "impressions": 40, "ctr": 0.1, "position": 3.0},
+        ]
+
+    collect_once(
+        config,
+        mode="incremental",
+        conn=conn,
+        service=object(),
+        fetch_analytics=lambda service, property, start, end: _sa(property, "2026-07-15"),
+        fetch_cwv_fn=lambda url: None,
+        fetch_query_page_fn=fetch_query_page_fn,
+        today=datetime.date(2026, 7, 24),
+    )
+
+    rows = conn.execute(
+        "SELECT query, page, impressions FROM query_page_snapshot WHERE site=?", (SITE_A,)
+    ).fetchall()
+    assert rows == [("q", "p1", 40)]
+    start, end = captured["window"]
+    assert datetime.date.fromisoformat(end) - datetime.date.fromisoformat(start) == datetime.timedelta(days=27)
+
+
+def test_query_page_failure_does_not_fail_the_site(tmp_path, conn):
+    config = _config(
+        tmp_path, sites=[Site(property=SITE_A, slug="site-a", display_name="A", brand_token="a")]
+    )
+
+    def boom(service, property, start, end):
+        raise RuntimeError("gsc 500")
+
+    results = collect_once(
+        config,
+        mode="incremental",
+        conn=conn,
+        service=object(),
+        fetch_analytics=lambda service, property, start, end: _sa(property, "2026-07-15"),
+        fetch_cwv_fn=lambda url: None,
+        fetch_query_page_fn=boom,
+        today=datetime.date(2026, 7, 24),
+    )
+
+    assert results[0]["status"] == "success"  # snapshot failure is isolated
+    # GSC rows still landed.
+    assert conn.execute("SELECT COUNT(*) FROM totals_daily WHERE site=?", (SITE_A,)).fetchone()[0] == 1

@@ -73,6 +73,7 @@ def collect_once(
     service=None,
     fetch_analytics: Callable | None = None,
     fetch_cwv_fn: Callable | None = None,
+    fetch_query_page_fn: Callable | None = None,
     today: datetime.date | None = None,
 ) -> list[dict]:
     """Run one collection pass over every site in ``config``.
@@ -140,6 +141,8 @@ def collect_once(
         fetch_analytics = gsc_module.fetch_search_analytics
     if fetch_cwv_fn is None:
         fetch_cwv_fn = cwv_module.fetch_cwv
+    if fetch_query_page_fn is None:
+        fetch_query_page_fn = gsc_module.fetch_query_page
 
     # One "now" timestamp for every CWV snapshot captured in this run,
     # derived from `today` (start-of-day UTC) rather than a fresh
@@ -206,13 +209,41 @@ def collect_once(
                     e,
                 )
 
-            db.finish_run(conn, run_id, "success", cwv_error, rows_written)
+            # Rolling query x page snapshot for cannibalization detection. Its
+            # own try/except (like CWV): a snapshot failure must not condemn
+            # the GSC rows already committed for this site.
+            qp_error: str | None = None
+            try:
+                snap_end = end
+                snap_start = (
+                    datetime.date.fromisoformat(end) - datetime.timedelta(days=27)
+                ).isoformat()
+                qp_rows = fetch_query_page_fn(service, site.property, snap_start, snap_end)
+                db.replace_query_page_snapshot(
+                    conn,
+                    site.property,
+                    qp_rows,
+                    window_start=snap_start,
+                    window_end=snap_end,
+                    captured_at=captured_at,
+                )
+                rows_written += len(qp_rows)
+            except Exception as e:  # noqa: BLE001 - isolate snapshot from GSC
+                qp_error = f"query_page: {e}"
+                logger.warning(
+                    "query x page snapshot failed for %s (GSC data still collected): %s",
+                    site.property,
+                    e,
+                )
+
+            run_note = "; ".join(n for n in (cwv_error, qp_error) if n) or None
+            db.finish_run(conn, run_id, "success", run_note, rows_written)
             results.append(
                 {
                     "site": site.property,
                     "status": "success",
                     "rows": rows_written,
-                    "error": cwv_error,
+                    "error": run_note,
                     "cwv_error": cwv_error,
                 }
             )
