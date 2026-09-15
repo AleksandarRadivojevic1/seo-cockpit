@@ -190,6 +190,25 @@ CREATE TABLE IF NOT EXISTS serp_results (
     PRIMARY KEY (site, keyword, checked_at, position)
 );
 
+-- Rolling query x page snapshot: which pages rank for which query, aggregated
+-- over the last 28 days. Unlike query_daily/page_daily (separate marginals),
+-- this records the pairing, the input to cannibalization detection. Replaced
+-- wholesale per site each run (see replace_query_page_snapshot), so it never
+-- grows over time -- no date column.
+CREATE TABLE IF NOT EXISTS query_page_snapshot (
+    site         TEXT NOT NULL,
+    query        TEXT NOT NULL,
+    page         TEXT NOT NULL,
+    clicks       INTEGER,
+    impressions  INTEGER,
+    ctr          REAL,
+    position     REAL,
+    window_start TEXT NOT NULL,
+    window_end   TEXT NOT NULL,
+    captured_at  TEXT NOT NULL,
+    PRIMARY KEY (site, query, page)
+);
+
 CREATE INDEX IF NOT EXISTS idx_totals_daily_site_date
     ON totals_daily (site, date);
 
@@ -213,6 +232,9 @@ CREATE INDEX IF NOT EXISTS idx_serp_checks_site_keyword
 
 CREATE INDEX IF NOT EXISTS idx_serp_results_site_keyword
     ON serp_results (site, keyword, checked_at);
+
+CREATE INDEX IF NOT EXISTS idx_qps_site_query
+    ON query_page_snapshot (site, query);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cwv_snapshots_site_url_captured_at
     ON cwv_snapshots (site, url, captured_at);
@@ -407,6 +429,47 @@ def upsert_country_daily(conn: sqlite3.Connection, rows: Iterable[Mapping]) -> N
         list(rows),
     )
     conn.commit()
+
+
+def replace_query_page_snapshot(
+    conn: sqlite3.Connection,
+    site: str,
+    rows: Iterable[Mapping],
+    *,
+    window_start: str,
+    window_end: str,
+    captured_at: str,
+) -> None:
+    """Replace the site's rolling query x page snapshot in one transaction.
+
+    Snapshot semantics: every call wipes the site's prior rows and inserts the
+    current window, so the table never grows over time. An empty ``rows``
+    leaves the site with no snapshot rows -- a real "measured, nothing to
+    show" state, distinct from "never collected". Each row is stamped with the
+    window and capture time here, so callers pass only site/query/page metrics.
+    """
+    stamped = [
+        {
+            **row,
+            "window_start": window_start,
+            "window_end": window_end,
+            "captured_at": captured_at,
+        }
+        for row in rows
+    ]
+    with conn:  # atomic: delete + insert commit together, roll back on error
+        conn.execute("DELETE FROM query_page_snapshot WHERE site = ?", (site,))
+        conn.executemany(
+            """
+            INSERT INTO query_page_snapshot
+                (site, query, page, clicks, impressions, ctr, position,
+                 window_start, window_end, captured_at)
+            VALUES
+                (:site, :query, :page, :clicks, :impressions, :ctr, :position,
+                 :window_start, :window_end, :captured_at)
+            """,
+            stamped,
+        )
 
 
 def upsert_demand_keywords(conn: sqlite3.Connection, rows: Iterable[Mapping]) -> None:
