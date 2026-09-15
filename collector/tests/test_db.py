@@ -709,3 +709,72 @@ def test_latest_date_returns_max_date(conn):
     assert latest_date(conn, SITE) == "2026-09-05"
     # A different site with no rows is still None.
     assert latest_date(conn, "sc-domain:other.example") is None
+
+
+# ---------------------------------------------------------------------------
+# query_page_snapshot: a rolling per-site snapshot with replace semantics,
+# the input to dashboard-side cannibalization detection.
+# ---------------------------------------------------------------------------
+
+import seocockpit.db as dbmod
+
+_QPS_META = dict(
+    window_start="2026-08-18", window_end="2026-09-14", captured_at="2026-09-15T00:00:00"
+)
+
+
+def _qps_rows(conn, site):
+    return conn.execute(
+        "SELECT query, page, impressions FROM query_page_snapshot "
+        "WHERE site=? ORDER BY query, page",
+        (site,),
+    ).fetchall()
+
+
+def test_replace_query_page_snapshot_wipes_then_inserts(tmp_path):
+    conn = init_db(tmp_path / "t.db")
+    dbmod.replace_query_page_snapshot(
+        conn,
+        "sc-domain:x",
+        [
+            {"site": "sc-domain:x", "query": "q", "page": "p1", "clicks": 1, "impressions": 50, "ctr": 0.1, "position": 3.0},
+            {"site": "sc-domain:x", "query": "q", "page": "p2", "clicks": 0, "impressions": 20, "ctr": 0.0, "position": 8.0},
+        ],
+        **_QPS_META,
+    )
+    dbmod.replace_query_page_snapshot(
+        conn,
+        "sc-domain:x",
+        [
+            {"site": "sc-domain:x", "query": "q", "page": "p1", "clicks": 2, "impressions": 60, "ctr": 0.1, "position": 2.0},
+        ],
+        **_QPS_META,
+    )
+    assert _qps_rows(conn, "sc-domain:x") == [("q", "p1", 60)]
+
+
+def test_replace_query_page_snapshot_isolates_other_sites(tmp_path):
+    conn = init_db(tmp_path / "t.db")
+    dbmod.replace_query_page_snapshot(
+        conn,
+        "sc-domain:a",
+        [{"site": "sc-domain:a", "query": "q", "page": "p", "clicks": 1, "impressions": 30, "ctr": 0.1, "position": 4.0}],
+        **_QPS_META,
+    )
+    dbmod.replace_query_page_snapshot(conn, "sc-domain:b", [], **_QPS_META)
+    assert len(_qps_rows(conn, "sc-domain:a")) == 1
+    assert _qps_rows(conn, "sc-domain:b") == []
+
+
+def test_init_db_is_idempotent_for_snapshot(tmp_path):
+    p = tmp_path / "t.db"
+    conn = init_db(p)
+    dbmod.replace_query_page_snapshot(
+        conn,
+        "sc-domain:x",
+        [{"site": "sc-domain:x", "query": "q", "page": "p", "clicks": 1, "impressions": 30, "ctr": 0.1, "position": 4.0}],
+        **_QPS_META,
+    )
+    conn.close()
+    conn2 = init_db(p)
+    assert len(_qps_rows(conn2, "sc-domain:x")) == 1
