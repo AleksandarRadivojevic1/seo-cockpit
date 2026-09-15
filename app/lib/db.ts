@@ -1,6 +1,8 @@
 import Database from "better-sqlite3";
 import path from "node:path";
 
+import type { QueryPageRow } from "./analysis/cannibalization";
+
 export interface TotalsRow {
   site: string;
   date: string;
@@ -397,4 +399,33 @@ export function latestTotalsDate(site: string, db: Database.Database = getDb()):
     )
     .get(site);
   return row?.maxDate ?? null;
+}
+
+/**
+ * Rows of the collector's rolling query x page snapshot for one site, ordered
+ * by impressions. An empty array means the collector has not written a
+ * snapshot for this site yet -- the caller treats that as "not collected",
+ * distinct from a collected snapshot that yields no cannibalized queries.
+ */
+export function queryPageSnapshot(
+  site: string,
+  db: Database.Database = getDb(),
+): QueryPageRow[] {
+  // A dashboard container may be running against a database written before
+  // this feature shipped; a missing table is "not collected", not a crash.
+  const exists = db
+    .prepare<[], { n: number }>(
+      "SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name='query_page_snapshot'",
+    )
+    .get();
+  if (!exists || exists.n === 0) return [];
+
+  return db
+    .prepare<[string], QueryPageRow>(
+      `SELECT query, page, clicks, impressions, ctr, position
+         FROM query_page_snapshot
+        WHERE site = ?
+        ORDER BY impressions DESC`,
+    )
+    .all(site);
 }

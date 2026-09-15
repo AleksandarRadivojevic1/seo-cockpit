@@ -12,6 +12,7 @@ import {
   listSiteConfigs,
   listSites,
   pageRowsInRange,
+  queryPageSnapshot,
   queryRowsInRange,
   siteConfigBySlug,
   totalsInRange,
@@ -302,5 +303,32 @@ describe("readonly enforcement", () => {
         "INSERT INTO totals_daily (site, date, clicks, impressions, ctr, position) VALUES (?, ?, ?, ?, ?, ?)"
       ).run(SITE_A, "2026-02-01", 1, 1, 1, 1);
     }).toThrow();
+  });
+});
+
+describe("queryPageSnapshot", () => {
+  it("returns the site's rows and is empty for an uncollected site", () => {
+    const db = new BetterSqlite3(":memory:");
+    db.exec(`CREATE TABLE query_page_snapshot (
+      site TEXT, query TEXT, page TEXT, clicks INTEGER, impressions INTEGER,
+      ctr REAL, position REAL, window_start TEXT, window_end TEXT, captured_at TEXT,
+      PRIMARY KEY (site, query, page));`);
+    db.prepare(
+      `INSERT INTO query_page_snapshot VALUES
+        ('sc-domain:x','q','p1',1,40,0.1,3.0,'2026-08-18','2026-09-14','2026-09-15T00:00:00')`,
+    ).run();
+
+    expect(queryPageSnapshot("sc-domain:x", db)).toEqual([
+      { query: "q", page: "p1", clicks: 1, impressions: 40, ctr: 0.1, position: 3.0 },
+    ]);
+    expect(queryPageSnapshot("sc-domain:none", db)).toEqual([]);
+  });
+});
+
+describe("queryPageSnapshot with no snapshot table", () => {
+  it("returns [] when the table does not exist yet (pre-migration DB)", () => {
+    const db = new BetterSqlite3(":memory:");
+    // No query_page_snapshot table created -- a DB written before this feature.
+    expect(queryPageSnapshot("sc-domain:x", db)).toEqual([]);
   });
 });
