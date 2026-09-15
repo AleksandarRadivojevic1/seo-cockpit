@@ -31,9 +31,9 @@ describe("Serbian report strings", () => {
     for (const s of allStrings(SR)) expect(s).not.toMatch(emoji);
   });
 
-  it("names the author and site for the header", () => {
-    expect(SR.author).toBe("Aleksandar Radivojević");
-    expect(SR.authorSite).toBe("alexrad.dev");
+  it("names the agency and its site for the header", () => {
+    expect(SR.author).toBe("Deimos Agency");
+    expect(SR.authorSite).toBe("deimos.agency");
   });
 
   it("distinguishes never-collected from measured-zero", () => {

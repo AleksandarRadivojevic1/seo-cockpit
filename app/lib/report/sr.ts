@@ -17,8 +17,8 @@
 export const SR = {
   docTitle: "SEO izveštaj",
   preparedBy: "Izveštaj pripremio",
-  author: "Aleksandar Radivojević",
-  authorSite: "alexrad.dev",
+  author: "Deimos Agency",
+  authorSite: "deimos.agency",
   period: "Period",
   print: "Sačuvaj kao PDF",
   /** The server renders the document; on a Pi this takes a few seconds. */
