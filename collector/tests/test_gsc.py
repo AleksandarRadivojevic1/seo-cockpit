@@ -341,3 +341,57 @@ def test_fetch_search_analytics_reraises_after_max_attempts():
     with patch("seocockpit.gsc.time.sleep"):
         with pytest.raises(HttpError):
             fetch_search_analytics(service, PROPERTY, "2026-07-01", "2026-07-01")
+
+
+# ---------------------------------------------------------------------------
+# fetch_query_page: single query x page aggregate over a window (no date dim),
+# the input to cannibalization detection.
+# ---------------------------------------------------------------------------
+
+from seocockpit import gsc as _gsc
+
+
+class _QPFakeSA:
+    def __init__(self, pages):
+        self._pages = pages
+        self.bodies = []
+
+    def query(self, siteUrl, body):
+        self.bodies.append(body)
+        page = self._pages.pop(0) if self._pages else {"rows": []}
+        return _QPFakeReq(page)
+
+
+class _QPFakeReq:
+    def __init__(self, resp):
+        self._resp = resp
+
+    def execute(self):
+        return self._resp
+
+
+class _QPFakeService:
+    def __init__(self, pages):
+        self._sa = _QPFakeSA(pages)
+
+    def searchanalytics(self):
+        return self._sa
+
+
+def test_fetch_query_page_returns_pairs_without_date():
+    service = _QPFakeService(
+        [
+            {
+                "rows": [
+                    {"keys": ["kontaktna sociva", "https://x/a"], "clicks": 5, "impressions": 50, "ctr": 0.1, "position": 3.0},
+                    {"keys": ["kontaktna sociva", "https://x/b"], "clicks": 0, "impressions": 20, "ctr": 0.0, "position": 8.0},
+                ]
+            },
+        ]
+    )
+    rows = _gsc.fetch_query_page(service, "sc-domain:x", "2026-08-18", "2026-09-14")
+    assert rows == [
+        {"site": "sc-domain:x", "query": "kontaktna sociva", "page": "https://x/a", "clicks": 5, "impressions": 50, "ctr": 0.1, "position": 3.0},
+        {"site": "sc-domain:x", "query": "kontaktna sociva", "page": "https://x/b", "clicks": 0, "impressions": 20, "ctr": 0.0, "position": 8.0},
+    ]
+    assert service._sa.bodies[0]["dimensions"] == ["query", "page"]
