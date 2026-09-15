@@ -35,6 +35,37 @@ function pathOf(url: string): string {
   }
 }
 
+/** The Deimos octagon mark, drawn (never a glyph). `light` is the on-paper
+ *  variant for the running header; the default is the dark-cover variant. */
+function Mark({ size = 30, light = false }: { size?: number; light?: boolean }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <path
+        d="M16 1.6 27 7.2v11.2L16 30.4 5 18.4V7.2z"
+        fill={light ? "#f2ede3" : "#1b1c1e"}
+        stroke={light ? "#d9d2c6" : "#3a3c40"}
+        strokeWidth="1"
+      />
+      {!light && <path d="M16 1.6 27 7.2 16 13 5 7.2z" fill="#242628" />}
+      {!light && <path d="M16 13v17.4L5 18.4V7.2z" fill="#141517" />}
+      <path d="M16 6.4l6 3.1-6 3.2-6-3.2z" fill="#c1440e" />
+      {!light && <circle cx="16" cy="9.6" r="1.5" fill="#ff6b2c" />}
+    </svg>
+  );
+}
+
+/** Directional caret for a metric delta — a drawn mark, not a ▲/▼ glyph. */
+function Caret({ up }: { up: boolean }) {
+  return (
+    <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+      <path
+        d={up ? "M5 2 8.5 7.5H1.5z" : "M5 8 1.5 2.5h7z"}
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -85,285 +116,309 @@ export default async function ReportPage({
     d.measuredStart && d.measuredEnd ? formatPeriodSr(d.measuredStart, d.measuredEnd) : "—";
 
   return (
-    <div className="report mx-auto w-full max-w-[210mm] bg-white px-10 py-10 text-neutral-900">
-      <div className="mb-6 flex justify-end print:hidden">
+    <div className="report mx-auto w-full max-w-[210mm] bg-white text-neutral-900">
+      <div className="flex justify-end p-4 print:hidden">
         <PrintButton href={`/site/${slug}/report/pdf`} />
       </div>
 
-      <header className="mb-8">
-        <div className="mb-3 h-[3px] w-10 bg-[#1b4f8f]" />
-        <h1 className="text-3xl font-semibold tracking-tight">{d.siteName}</h1>
-        <p className="mt-1 text-sm text-neutral-500">{config.property}</p>
-        <div className="mt-4 flex items-end justify-between border-b border-neutral-200 pb-3 text-xs text-neutral-500">
+      {/* Page 1 — dark branded cover (full-bleed in print via @page cover). */}
+      <div className="report-cover">
+        <div className="rc-brand">
+          <Mark size={30} />
+          <span className="rc-wordmark">DEIMOS</span>
+        </div>
+        <div className="rc-mid">
+          <div className="rc-doctype">{SR.docTitle}</div>
+          <h1 className="rc-client">
+            {d.siteName}
+            <span className="serif">{period}</span>
+          </h1>
+          <hr className="rc-rule" />
+        </div>
+        <div className="rc-foot">
           <div>
-            {SR.period}
-            <span className="block text-sm font-medium text-neutral-900">{period}</span>
+            <div className="label">{SR.preparedBy}</div>
+            <strong>{SR.author}</strong>
           </div>
-          <div className="text-right">
-            {SR.preparedBy}
-            <span className="block text-sm font-medium text-neutral-900">{SR.author}</span>
+          <div style={{ textAlign: "right" }}>
+            <a href={`https://${SR.authorSite}`}>{SR.authorSite}</a>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* "Nothing was collected" and "everything was collected and the answer
-          is zero" are different statements about the world, and the client
-          deserves the honest one. */}
-      {d.dataState === "not-collected" && (
-        <p className="mb-6 border-l-2 border-neutral-300 pl-3 text-sm">{SR.notCollected}</p>
-      )}
-      {d.dataState === "zero" && (
-        <p className="mb-6 border-l-2 border-neutral-300 pl-3 text-sm">{SR.measuredZero}</p>
-      )}
-
-      <section className="mb-8 break-inside-avoid">
-        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400">
-          {SR.summary}
-        </h2>
-        <div className="flex gap-10">
-          <div>
-            <div className="text-3xl font-semibold tracking-tight">
-              {formatIntSr(d.clicks.recent)}
-            </div>
-            <div className="mt-1 text-xs text-neutral-500">
-              {pluralSr(d.clicks.recent, SR.clicks)}
-            </div>
+      {/* Page 2+ — light printable body. */}
+      <div className="report-body">
+        <div className="rb-head">
+          <div className="wm">
+            <Mark size={20} light />
+            <span className="wtext">DEIMOS</span>
           </div>
-          <div>
-            <div className="text-3xl font-semibold tracking-tight">
-              {formatIntSr(d.impressions)}
-            </div>
-            <div className="mt-1 text-xs text-neutral-500">
-              {pluralSr(d.impressions, SR.impressions)}
-            </div>
-          </div>
-          <div>
-            <div className="text-3xl font-semibold tracking-tight">
-              {d.avgPosition === null ? "—" : formatDecimalSr(d.avgPosition)}
-            </div>
-            <div className="mt-1 text-xs text-neutral-500">{SR.avgPosition}</div>
+          <div className="pg">
+            {d.siteName} · {SR.docTitle} · {period}
           </div>
         </div>
-        {/* Three shapes, three sentences, no silence: no prior window at all,
-            a prior window with no clicks to divide by, and a real comparison.
-            Dropping any of them would leave the client guessing which one
-            they are looking at. */}
-        {!d.hasPriorWindow ? (
-          d.measuredStart && (
-            <p className="mt-3 text-xs italic text-neutral-500">
-              {SR.noPrior(formatDateSr(d.measuredStart))}
-            </p>
-          )
-        ) : (
-          <p className="mt-3 text-xs italic text-neutral-500">
-            {SR.colClicks}:{" "}
-            {d.clicks.deltaPct === null
-              ? SR.noPriorClicks
-              : d.clicks.deltaPct === 0
-                ? SR.noChange
-                : SR.vsPrior(
-                    formatPercentSr(Math.abs(d.clicks.deltaPct) / 100),
-                    d.clicks.deltaPct > 0
-                  )}
-          </p>
-        )}
-      </section>
 
-      <section className="mb-8 break-inside-avoid">
-        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400">
-          {SR.trend}
-        </h2>
-        {d.trend.length > 1 ? (
-          <ReportChart points={d.trend} />
-        ) : (
-          <p className="text-sm text-neutral-500">{SR.trendEmpty}</p>
+        {/* "Nothing was collected" and "everything was collected and the answer
+            is zero" are different statements about the world, and the client
+            deserves the honest one. */}
+        {d.dataState === "not-collected" && (
+          <p className="rb-lead">{SR.notCollected}</p>
         )}
-      </section>
+        {d.dataState === "zero" && (
+          <p className="rb-lead">{SR.measuredZero}</p>
+        )}
 
-      <section className="mb-8 break-inside-avoid">
-        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400">
-          {SR.opportunities}
-        </h2>
-        {d.opportunities.length === 0 ? (
-          <p className="text-sm text-neutral-500">{SR.opportunitiesEmpty}</p>
-        ) : (
-          <>
-            <p className="mb-3 text-sm text-neutral-600">{SR.opportunitiesLead}</p>
+        <section className="mb-8 break-inside-avoid">
+          <h2 className="rb-sec">
+            {SR.summary}
+          </h2>
+          <div className="rb-kpis">
+            <div className="rb-kpi">
+              <div className="n">{formatIntSr(d.clicks.recent)}</div>
+              <div className="u">{pluralSr(d.clicks.recent, SR.clicks)}</div>
+              {/* The one directional comparison gets the compact caret chip;
+                  the non-directional shapes (no prior window, prior-with-no-
+                  clicks, flat) are stated in full below, never as a 0%. */}
+              {d.hasPriorWindow &&
+                d.clicks.deltaPct !== null &&
+                d.clicks.deltaPct !== 0 && (
+                  <div className={`rb-delta${d.clicks.deltaPct > 0 ? " up" : ""}`}>
+                    <Caret up={d.clicks.deltaPct > 0} />
+                    {formatPercentSr(Math.abs(d.clicks.deltaPct) / 100)}
+                  </div>
+                )}
+            </div>
+            <div className="rb-kpi">
+              <div className="n">{formatIntSr(d.impressions)}</div>
+              <div className="u">{pluralSr(d.impressions, SR.impressions)}</div>
+            </div>
+            <div className="rb-kpi">
+              <div className="n">
+                {d.avgPosition === null ? "—" : formatDecimalSr(d.avgPosition)}
+              </div>
+              <div className="u">{SR.avgPosition}</div>
+            </div>
+          </div>
+          {/* Three shapes, three sentences, no silence: no prior window at all,
+              a prior window with no clicks to divide by, and a flat comparison.
+              The real directional change is shown as the chip above; the rest
+              are spelled out here so the client never guesses which one they are
+              looking at. */}
+          {!d.hasPriorWindow
+            ? d.measuredStart && (
+                <p className="mt-3 text-xs italic text-neutral-500">
+                  {SR.noPrior(formatDateSr(d.measuredStart))}
+                </p>
+              )
+            : d.clicks.deltaPct === null ? (
+                <p className="mt-3 text-xs italic text-neutral-500">
+                  {SR.colClicks}: {SR.noPriorClicks}
+                </p>
+              ) : (
+                d.clicks.deltaPct === 0 && (
+                  <p className="mt-3 text-xs italic text-neutral-500">
+                    {SR.colClicks}: {SR.noChange}
+                  </p>
+                )
+              )}
+        </section>
+
+        <section className="mb-8 break-inside-avoid">
+          <h2 className="rb-sec">
+            {SR.trend}
+          </h2>
+          {d.trend.length > 1 ? (
+            <ReportChart points={d.trend} />
+          ) : (
+            <p className="text-sm text-neutral-500">{SR.trendEmpty}</p>
+          )}
+        </section>
+
+        <section className="mb-8 break-inside-avoid">
+          <h2 className="rb-sec">
+            {SR.opportunities}
+          </h2>
+          {d.opportunities.length === 0 ? (
+            <p className="text-sm text-neutral-500">{SR.opportunitiesEmpty}</p>
+          ) : (
+            <>
+              <p className="mb-3 text-sm text-neutral-600">{SR.opportunitiesLead}</p>
+              <ReportTable
+                head={[SR.colQuery, SR.colPosition, SR.colImpressions, SR.colCtr]}
+                numeric={[false, true, true, true]}
+                rows={d.opportunities.map((o) => [
+                  o.query,
+                  formatDecimalSr(o.position),
+                  formatIntSr(o.impressions),
+                  formatPercentSr(o.ctr),
+                ])}
+              />
+            </>
+          )}
+        </section>
+
+        <section className="mb-8 break-inside-avoid">
+          <h2 className="rb-sec">
+            {SR.movement}
+          </h2>
+          {d.rising.length === 0 && d.declining.length === 0 ? (
+            <p className="text-sm text-neutral-500">{SR.movementEmpty}</p>
+          ) : (
+            <dl className="text-sm">
+              <div className="mb-1.5">
+                <dt className="inline font-medium">{SR.movementRising}: </dt>
+                <dd className="inline text-neutral-600">
+                  {d.rising.length === 0
+                    ? SR.movementNone
+                    : d.rising.map((e) => e.query).join(", ")}
+                </dd>
+              </div>
+              <div>
+                <dt className="inline font-medium">{SR.movementDeclining}: </dt>
+                <dd className="inline text-neutral-600">
+                  {d.declining.length === 0
+                    ? SR.movementNone
+                    : d.declining.map((e) => e.query).join(", ")}
+                </dd>
+              </div>
+            </dl>
+          )}
+        </section>
+
+        <section className="mb-8 break-inside-avoid">
+          <h2 className="rb-sec">
+            {SR.sources}
+          </h2>
+          <ReportTable
+            head={["", SR.colImpressions, ""]}
+            numeric={[false, true, true]}
+            rows={[
+              [
+                SR.sourceBrand,
+                formatIntSr(d.breakdown.brandImpressions),
+                share(d.breakdown.brandImpressions, d.breakdown.totalImpressions),
+              ],
+              [
+                SR.sourceNonBrand,
+                formatIntSr(d.breakdown.nonBrandImpressions),
+                share(d.breakdown.nonBrandImpressions, d.breakdown.totalImpressions),
+              ],
+              [
+                SR.sourceAnonymous,
+                formatIntSr(d.breakdown.anonymizedImpressions),
+                share(d.breakdown.anonymizedImpressions, d.breakdown.totalImpressions),
+              ],
+            ]}
+          />
+          <p className="mt-3 text-xs italic text-neutral-500">{SR.sourcesNote}</p>
+        </section>
+
+        <section className="mb-8 break-inside-avoid">
+          <h2 className="rb-sec">
+            {SR.pages}
+          </h2>
+          {d.topPages.length === 0 ? (
+            <p className="text-sm text-neutral-500">{SR.pagesEmpty}</p>
+          ) : (
             <ReportTable
-              head={[SR.colQuery, SR.colPosition, SR.colImpressions, SR.colCtr]}
+              head={[SR.colPage, SR.colClicks, SR.colImpressions, SR.colPosition]}
               numeric={[false, true, true, true]}
-              rows={d.opportunities.map((o) => [
-                o.query,
-                formatDecimalSr(o.position),
-                formatIntSr(o.impressions),
-                formatPercentSr(o.ctr),
+              rows={d.topPages.map((p) => [
+                pathOf(p.page),
+                formatIntSr(p.clicks),
+                formatIntSr(p.impressions),
+                formatDecimalSr(p.position),
               ])}
             />
-          </>
-        )}
-      </section>
+          )}
+        </section>
 
-      <section className="mb-8 break-inside-avoid">
-        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400">
-          {SR.movement}
-        </h2>
-        {d.rising.length === 0 && d.declining.length === 0 ? (
-          <p className="text-sm text-neutral-500">{SR.movementEmpty}</p>
-        ) : (
-          <dl className="text-sm">
-            <div className="mb-1.5">
-              <dt className="inline font-medium">{SR.movementRising}: </dt>
-              <dd className="inline text-neutral-600">
-                {d.rising.length === 0
-                  ? SR.movementNone
-                  : d.rising.map((e) => e.query).join(", ")}
-              </dd>
-            </div>
-            <div>
-              <dt className="inline font-medium">{SR.movementDeclining}: </dt>
-              <dd className="inline text-neutral-600">
-                {d.declining.length === 0
-                  ? SR.movementNone
-                  : d.declining.map((e) => e.query).join(", ")}
-              </dd>
-            </div>
-          </dl>
-        )}
-      </section>
+        <section className="mb-8">
+          <h2 className="rb-sec">
+            {SR.demand}
+          </h2>
+          {d.demand.notCollected || d.demand.gaps.length === 0 ? (
+            <p className="text-sm text-neutral-500">{SR.demandEmpty}</p>
+          ) : (
+            <>
+              <p className="mb-3 text-sm text-neutral-600">
+                {SR.demandLead(d.demand.gaps.length, pluralSr(d.demand.gaps.length, SR.keywords))}
+              </p>
+              <ReportTable
+                head={[SR.colQuery, ""]}
+                rows={d.demand.gaps.slice(0, 20).map((g) => [g.keyword, SR.demandIntent[g.intent]])}
+              />
+            </>
+          )}
+        </section>
 
-      <section className="mb-8 break-inside-avoid">
-        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400">
-          {SR.sources}
-        </h2>
-        <ReportTable
-          head={["", SR.colImpressions, ""]}
-          numeric={[false, true, true]}
-          rows={[
-            [
-              SR.sourceBrand,
-              formatIntSr(d.breakdown.brandImpressions),
-              share(d.breakdown.brandImpressions, d.breakdown.totalImpressions),
-            ],
-            [
-              SR.sourceNonBrand,
-              formatIntSr(d.breakdown.nonBrandImpressions),
-              share(d.breakdown.nonBrandImpressions, d.breakdown.totalImpressions),
-            ],
-            [
-              SR.sourceAnonymous,
-              formatIntSr(d.breakdown.anonymizedImpressions),
-              share(d.breakdown.anonymizedImpressions, d.breakdown.totalImpressions),
-            ],
-          ]}
-        />
-        <p className="mt-3 text-xs italic text-neutral-500">{SR.sourcesNote}</p>
-      </section>
+        <section className="mb-8">
+          <h2 className="rb-sec">
+            {SR.competitors}
+          </h2>
+          {d.serpState === "not-checked" ? (
+            <p className="text-sm text-neutral-500">{SR.competitorsEmpty}</p>
+          ) : d.competitors.length === 0 ? (
+            <p className="text-sm text-neutral-500">{SR.competitorsEmptySerp}</p>
+          ) : (
+            <>
+              <p className="mb-3 text-sm text-neutral-600">{SR.competitorsLead}</p>
+              <ReportTable
+                head={[SR.colDomain, SR.colAppearances, SR.colBest]}
+                numeric={[false, true, true]}
+                rows={d.competitors
+                  .slice(0, 10)
+                  .map((c) => [c.domain, formatIntSr(c.appearances), formatIntSr(c.bestPosition)])}
+              />
+            </>
+          )}
+        </section>
 
-      <section className="mb-8 break-inside-avoid">
-        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400">
-          {SR.pages}
-        </h2>
-        {d.topPages.length === 0 ? (
-          <p className="text-sm text-neutral-500">{SR.pagesEmpty}</p>
-        ) : (
-          <ReportTable
-            head={[SR.colPage, SR.colClicks, SR.colImpressions, SR.colPosition]}
-            numeric={[false, true, true, true]}
-            rows={d.topPages.map((p) => [
-              pathOf(p.page),
-              formatIntSr(p.clicks),
-              formatIntSr(p.impressions),
-              formatDecimalSr(p.position),
-            ])}
-          />
-        )}
-      </section>
+        <section className="mb-8 break-inside-avoid">
+          <h2 className="rb-sec">
+            {SR.cwv}
+          </h2>
+          {!d.cwv ? (
+            <p className="text-sm text-neutral-500">{SR.cwvEmpty}</p>
+          ) : (
+            <>
+              <dl className="text-sm">
+                {(
+                  [
+                    ["LCP", d.cwv.lcp_p75, "lcp"],
+                    ["INP", d.cwv.inp_p75, "inp"],
+                    ["CLS", d.cwv.cls_p75, "cls"],
+                  ] as const
+                ).map(([label, value, key]) => (
+                  <div key={label} className="flex gap-2 py-0.5">
+                    <dt className="w-12 font-medium">{label}</dt>
+                    <dd className="text-neutral-600">
+                      {value === null ? (
+                        SR.cwvNotMeasured
+                      ) : (
+                        <>
+                          {formatCwvValueSr(value, key)}{" "}
+                          <span className="text-neutral-400">
+                            ({SR.cwvVerdict[metricVerdict(value, key)]})
+                          </span>
+                        </>
+                      )}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-3 text-xs italic text-neutral-500">
+                {d.cwv.source === "psi" ? SR.cwvLab : SR.cwvField}
+              </p>
+            </>
+          )}
+        </section>
 
-      <section className="mb-8">
-        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400">
-          {SR.demand}
-        </h2>
-        {d.demand.notCollected || d.demand.gaps.length === 0 ? (
-          <p className="text-sm text-neutral-500">{SR.demandEmpty}</p>
-        ) : (
-          <>
-            <p className="mb-3 text-sm text-neutral-600">
-              {SR.demandLead(d.demand.gaps.length, pluralSr(d.demand.gaps.length, SR.keywords))}
-            </p>
-            <ReportTable
-              head={[SR.colQuery, ""]}
-              rows={d.demand.gaps.slice(0, 20).map((g) => [g.keyword, SR.demandIntent[g.intent]])}
-            />
-          </>
-        )}
-      </section>
-
-      <section className="mb-8">
-        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400">
-          {SR.competitors}
-        </h2>
-        {d.serpState === "not-checked" ? (
-          <p className="text-sm text-neutral-500">{SR.competitorsEmpty}</p>
-        ) : d.competitors.length === 0 ? (
-          <p className="text-sm text-neutral-500">{SR.competitorsEmptySerp}</p>
-        ) : (
-          <>
-            <p className="mb-3 text-sm text-neutral-600">{SR.competitorsLead}</p>
-            <ReportTable
-              head={[SR.colDomain, SR.colAppearances, SR.colBest]}
-              numeric={[false, true, true]}
-              rows={d.competitors
-                .slice(0, 10)
-                .map((c) => [c.domain, formatIntSr(c.appearances), formatIntSr(c.bestPosition)])}
-            />
-          </>
-        )}
-      </section>
-
-      <section className="mb-8 break-inside-avoid">
-        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400">
-          {SR.cwv}
-        </h2>
-        {!d.cwv ? (
-          <p className="text-sm text-neutral-500">{SR.cwvEmpty}</p>
-        ) : (
-          <>
-            <dl className="text-sm">
-              {(
-                [
-                  ["LCP", d.cwv.lcp_p75, "lcp"],
-                  ["INP", d.cwv.inp_p75, "inp"],
-                  ["CLS", d.cwv.cls_p75, "cls"],
-                ] as const
-              ).map(([label, value, key]) => (
-                <div key={label} className="flex gap-2 py-0.5">
-                  <dt className="w-12 font-medium">{label}</dt>
-                  <dd className="text-neutral-600">
-                    {value === null ? (
-                      SR.cwvNotMeasured
-                    ) : (
-                      <>
-                        {formatCwvValueSr(value, key)}{" "}
-                        <span className="text-neutral-400">
-                          ({SR.cwvVerdict[metricVerdict(value, key)]})
-                        </span>
-                      </>
-                    )}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-            <p className="mt-3 text-xs italic text-neutral-500">
-              {d.cwv.source === "psi" ? SR.cwvLab : SR.cwvField}
-            </p>
-          </>
-        )}
-      </section>
-
-      <footer className="mt-10 flex justify-between border-t border-neutral-200 pt-3 text-[10px] text-neutral-400">
-        <span>{SR.authorSite}</span>
-        <span>{d.siteName}</span>
-      </footer>
+        <footer className="rb-foot">
+          <span>{SR.authorSite}</span>
+          <span>{d.siteName}</span>
+        </footer>
+      </div>
     </div>
   );
 }

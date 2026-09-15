@@ -278,3 +278,88 @@
     display: none !important;
   }
 }
+
+/* ---- Client report: Deimos Agency redesign -------------------------------
+   Dark branded cover (page 1, full-bleed) + light printable body. The brand
+   travels through the rust-orange accent, Inter + Newsreader-italic type, the
+   DEIMOS mark, and graphite-warm grays -- not the black canvas, which would
+   be wrong for a printed client document. Colours are literals (this surface
+   is not themed) and `.report` already carries print-color-adjust: exact.   */
+.report {
+  --rpt-ink: #17150f;
+  --rpt-soft: #56514a;
+  --rpt-faint: #8a857c;
+  --rpt-line: #e7e2d8;
+  --rpt-cream: #f8f2e6;
+  --rpt-accent: #c1440e; /* print-safe deimos orange */
+  --rpt-accent-bright: #ff6b2c;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  color: var(--rpt-ink);
+  font-feature-settings: "cv05" 1;
+}
+.report .serif {
+  font-family: var(--font-newsreader), Georgia, serif;
+  font-style: italic;
+}
+
+/* Full-bleed dark cover */
+@page cover { margin: 0; }
+.report-cover {
+  page: cover;
+  min-height: 297mm;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: 26mm 24mm 22mm;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 62% 44%, rgba(255, 107, 44, 0.2) 0%, rgba(255, 107, 44, 0.05) 34%, rgba(0, 0, 0, 0) 60%),
+    linear-gradient(180deg, #0b0b0c 0%, #000 100%);
+}
+.report-cover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 42px);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 22%, #000 78%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 22%, #000 78%, transparent 100%);
+  pointer-events: none;
+}
+.report-cover > * { position: relative; }
+.rc-brand { display: flex; align-items: center; gap: 12px; }
+.rc-wordmark { font-weight: 700; letter-spacing: 0.34em; font-size: 15px; padding-left: 2px; color: #f4f2ee; }
+.rc-mid { margin-top: auto; margin-bottom: auto; padding: 18mm 0; }
+.rc-doctype { font-size: 12px; letter-spacing: 0.26em; text-transform: uppercase; color: #94979e; margin-bottom: 20px; }
+.rc-client { font-size: 58px; line-height: 0.98; font-weight: 600; letter-spacing: -0.03em; margin: 0; color: #fff; }
+.rc-client .serif { display: block; font-weight: 500; color: #f0ded2; letter-spacing: -0.01em; margin-top: 4px; }
+.rc-rule { width: 54px; height: 3px; background: var(--rpt-accent-bright); margin: 26px 0 0; border: 0; }
+.rc-foot { display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 16px; font-size: 12.5px; color: #c9cbcf; }
+.rc-foot .label { color: #94979e; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 5px; }
+.rc-foot strong { color: #fff; font-weight: 500; }
+.rc-foot a { color: var(--rpt-accent-bright); text-decoration: none; }
+
+/* Light body */
+.report-body { padding: 20mm 24mm 18mm; }
+.rb-head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--rpt-line); margin-bottom: 28px; }
+.rb-head .wm { display: flex; align-items: center; gap: 9px; }
+.rb-head .wm .wtext { font-weight: 700; letter-spacing: 0.28em; font-size: 11px; color: var(--rpt-ink); }
+.rb-head .pg { font-size: 11px; color: var(--rpt-faint); letter-spacing: 0.04em; }
+.report h2.rb-sec { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--rpt-accent); margin: 0 0 16px; display: flex; align-items: center; gap: 10px; }
+.report h2.rb-sec::after { content: ""; flex: 1; height: 1px; background: var(--rpt-line); }
+.rb-kpis { display: grid; grid-template-columns: repeat(3, 1fr); }
+.rb-kpi { padding: 4px 22px 4px 0; }
+.rb-kpi + .rb-kpi { border-left: 1px solid var(--rpt-line); padding-left: 22px; }
+.rb-kpi .n { font-size: 38px; font-weight: 700; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1; }
+.rb-kpi .u { font-size: 12px; color: var(--rpt-soft); margin-top: 7px; }
+.rb-delta { font-size: 11.5px; margin-top: 6px; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 5px; color: var(--rpt-soft); }
+.rb-delta.up { color: var(--rpt-accent); }
+.rb-lead { font-size: 13px; color: var(--rpt-soft); line-height: 1.55; margin: 0 0 14px; max-width: 64ch; }
+.rb-pos { display: inline-block; min-width: 30px; text-align: center; padding: 2px 8px; border-radius: 4px; background: var(--rpt-cream); color: var(--rpt-accent); font-weight: 600; font-variant-numeric: tabular-nums; }
+.rb-foot { margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--rpt-line); display: flex; justify-content: space-between; font-size: 11px; color: var(--rpt-faint); }
+.rb-foot a { color: var(--rpt-accent); text-decoration: none; }
+
+@media print {
+  /* The cover prints full-bleed via @page cover; keep its dark graphics. */
+  .report-cover { print-color-adjust: exact; -webkit-print-color-adjust: exact; break-after: page; }
+}
