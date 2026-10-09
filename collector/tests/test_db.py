@@ -778,3 +778,86 @@ def test_init_db_is_idempotent_for_snapshot(tmp_path):
     conn.close()
     conn2 = init_db(p)
     assert len(_qps_rows(conn2, "sc-domain:x")) == 1
+
+
+# ---------------------------------------------------------------------------
+# sites.active: a removed site is retired, not deleted, and not shown
+# ---------------------------------------------------------------------------
+
+
+def _site_row(property: str, slug: str) -> dict:
+    return {
+        "property": property,
+        "slug": slug,
+        "display_name": slug.title(),
+        "brand_token": slug,
+        "updated_at": "2026-07-20T00:00:00+00:00",
+    }
+
+
+def _active_by_property(conn) -> dict[str, int]:
+    return dict(conn.execute("SELECT property, active FROM sites").fetchall())
+
+
+def test_init_db_adds_active_to_a_sites_table_created_before_it(tmp_path):
+    """An existing seo.db predates the column. ``CREATE TABLE IF NOT EXISTS``
+    can't add it, so init_db must, and every existing site starts active."""
+    db_path = tmp_path / "seo.db"
+    old = sqlite3.connect(db_path)
+    old.execute(
+        """
+        CREATE TABLE sites (
+            property TEXT PRIMARY KEY, slug TEXT NOT NULL UNIQUE,
+            display_name TEXT NOT NULL, brand_token TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    old.execute(
+        "INSERT INTO sites VALUES (?, 'example', 'Example', 'example', '2026-07-20')",
+        (SITE,),
+    )
+    old.commit()
+    old.close()
+
+    conn = init_db(db_path)
+
+    assert _active_by_property(conn) == {SITE: 1}
+    # And a second init_db is still a no-op.
+    conn.close()
+    assert _active_by_property(init_db(db_path)) == {SITE: 1}
+
+
+def test_a_new_site_is_active(conn):
+    upsert_sites(conn, [_site_row(SITE, "example")])
+    assert _active_by_property(conn) == {SITE: 1}
+
+
+def test_retire_unlisted_sites_deactivates_only_the_unlisted(conn):
+    from seocockpit.db import retire_unlisted_sites
+
+    upsert_sites(conn, [_site_row(SITE, "example"), _site_row("https://example.org/", "org")])
+
+    retire_unlisted_sites(conn, [SITE])
+
+    assert _active_by_property(conn) == {SITE: 1, "https://example.org/": 0}
+
+
+def test_retire_unlisted_sites_with_an_empty_config_retires_everything(conn):
+    from seocockpit.db import retire_unlisted_sites
+
+    upsert_sites(conn, [_site_row(SITE, "example")])
+
+    retire_unlisted_sites(conn, [])
+
+    assert _active_by_property(conn) == {SITE: 0}
+
+
+def test_upserting_a_retired_site_reactivates_it(conn):
+    from seocockpit.db import retire_unlisted_sites
+
+    upsert_sites(conn, [_site_row(SITE, "example")])
+    retire_unlisted_sites(conn, [])
+    upsert_sites(conn, [_site_row(SITE, "example")])
+
+    assert _active_by_property(conn) == {SITE: 1}

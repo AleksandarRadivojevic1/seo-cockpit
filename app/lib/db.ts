@@ -329,26 +329,65 @@ export function serpChecks(site: string, db: Database.Database = getDb()): SerpC
   }));
 }
 
+/**
+ * Whether this database has `sites.active`. The collector retires a removed
+ * site (active = 0) instead of deleting it, so its history survives a
+ * re-add. The column arrives with the collector's migration, and the
+ * dashboard can be deployed first, so a database without it is read as
+ * "every site active", which is what it meant before. Checked per call, not
+ * cached: the collector can migrate the file while this process runs.
+ */
+function hasActiveColumn(db: Database.Database): boolean {
+  return db
+    .prepare<[], { name: string }>("PRAGMA table_info(sites)")
+    .all()
+    .some((column) => column.name === "active");
+}
+
+/** Every active site, by display name. Retired (removed) sites are left out. */
 export function listSiteConfigs(db: Database.Database = getDb()): SiteConfig[] {
+  const where = hasActiveColumn(db) ? "WHERE active = 1" : "";
   return db
     .prepare<[], SiteConfig>(
       `SELECT property, slug, display_name AS displayName, brand_token AS brandToken
        FROM sites
+       ${where}
        ORDER BY display_name`
     )
     .all();
 }
 
-/** A single site's display metadata by slug, or null if no site has that slug. */
+/**
+ * Sites removed from the config. Their rows (and slugs, which are UNIQUE in
+ * `sites`) stay, so the add-site check needs them: a retired slug can only go
+ * back to the property that held it.
+ */
+export function listRetiredSiteConfigs(db: Database.Database = getDb()): SiteConfig[] {
+  if (!hasActiveColumn(db)) return [];
+  return db
+    .prepare<[], SiteConfig>(
+      `SELECT property, slug, display_name AS displayName, brand_token AS brandToken
+       FROM sites
+       WHERE active = 0
+       ORDER BY display_name`
+    )
+    .all();
+}
+
+/**
+ * A single active site's display metadata by slug, or null if no active site
+ * has that slug.
+ */
 export function siteConfigBySlug(
   slug: string,
   db: Database.Database = getDb()
 ): SiteConfig | null {
+  const active = hasActiveColumn(db) ? "AND active = 1" : "";
   const row = db
     .prepare<[string], SiteConfig>(
       `SELECT property, slug, display_name AS displayName, brand_token AS brandToken
        FROM sites
-       WHERE slug = ?`
+       WHERE slug = ? ${active}`
     )
     .get(slug);
   return row ?? null;

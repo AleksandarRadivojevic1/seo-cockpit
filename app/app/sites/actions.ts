@@ -6,7 +6,7 @@ import {
   checkProperty,
   readAccessibleProperties,
 } from "../../lib/accessibleProperties";
-import { listSiteConfigs } from "../../lib/db";
+import { listRetiredSiteConfigs, listSiteConfigs } from "../../lib/db";
 import { writeRunTrigger } from "../../lib/runTrigger";
 import {
   loadUserSites,
@@ -51,9 +51,17 @@ export async function addSite(
   // Uniqueness is checked against both already-collected sites (the DB `sites`
   // table, which includes the sites.yaml seeds) and pending user sites.
   const dbConfigs = listSiteConfigs();
+  // A removed site is retired, not deleted, and keeps its slug (UNIQUE in
+  // `sites`). That slug is only free for the same property, whose re-add
+  // restores the history; given to another, the collector's upsert fails.
+  const property = String(formData.get("property") ?? "").trim();
+  const retiredSlugs = listRetiredSiteConfigs()
+    .filter((c) => c.property !== property)
+    .map((c) => c.slug);
   const existingSlugs = [
     ...dbConfigs.map((c) => c.slug),
     ...existing.map((s) => s.slug),
+    ...retiredSlugs,
   ];
   const existingProperties = [
     ...dbConfigs.map((c) => c.property),

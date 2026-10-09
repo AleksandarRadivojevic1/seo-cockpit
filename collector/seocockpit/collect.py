@@ -165,6 +165,11 @@ def collect_once(
             for site in config.sites
         ),
     )
+    # ``config`` is the whole current config (sites.yaml plus the dashboard's
+    # user-sites.json), so anything else in ``sites`` was removed. Retire it
+    # rather than leave it on the overview, where its empty recent window
+    # would read as a traffic drop.
+    db.retire_unlisted_sites(conn, (site.property for site in config.sites))
 
     results: list[dict] = []
 

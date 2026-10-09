@@ -655,3 +655,46 @@ def test_query_page_failure_does_not_fail_the_site(tmp_path, conn):
     assert results[0]["status"] == "success"  # snapshot failure is isolated
     # GSC rows still landed.
     assert conn.execute("SELECT COUNT(*) FROM totals_daily WHERE site=?", (SITE_A,)).fetchone()[0] == 1
+
+
+# ---------------------------------------------------------------------------
+# Removing a site retires it (active = 0) and keeps its history
+# ---------------------------------------------------------------------------
+
+
+def test_a_site_removed_from_config_is_retired_and_restored_on_re_add(tmp_path, conn):
+    """``collect_once`` only ever upserted into ``sites``, so a removed site
+    stayed in the overview, and its empty recent window read as a traffic
+    drop. Now each run marks the configured sites active and the rest
+    inactive, without touching any collected history."""
+    site_a = Site(property=SITE_A, slug="alexrad", display_name="Alexrad", brand_token="alexrad")
+    site_b = Site(property=SITE_B, slug="skedio", display_name="Skedio", brand_token="skedio")
+
+    def run(sites):
+        return collect_once(
+            _config(tmp_path, sites=sites),
+            mode="incremental",
+            conn=conn,
+            service=object(),
+            fetch_analytics=lambda service, property, start, end: _sa(property, "2026-07-15"),
+            fetch_cwv_fn=lambda url: None,
+            today=datetime.date(2026, 7, 24),
+        )
+
+    def active():
+        return dict(conn.execute("SELECT property, active FROM sites").fetchall())
+
+    run([site_a, site_b])
+    assert active() == {SITE_A: 1, SITE_B: 1}
+
+    results = run([site_a])
+    assert [r["site"] for r in results] == [SITE_A]
+    assert active() == {SITE_A: 1, SITE_B: 0}
+    # Retired, not deleted: SITE_B's history is still there.
+    assert (
+        conn.execute("SELECT COUNT(*) FROM totals_daily WHERE site=?", (SITE_B,)).fetchone()[0]
+        == 1
+    )
+
+    run([site_a, site_b])
+    assert active() == {SITE_A: 1, SITE_B: 1}

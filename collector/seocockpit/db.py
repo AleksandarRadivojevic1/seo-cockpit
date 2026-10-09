@@ -15,7 +15,10 @@ string from ``Site.property`` (e.g. ``sc-domain:alexrad.dev``) -- the stable
 unique key the rest of the collector already has. ``sites`` carries the
 ``slug``/``display_name``/``brand_token`` from ``sites.yaml`` so the
 dashboard container (which shares only the ``data/`` directory, not
-``sites.yaml`` itself) can read them from the DB.
+``sites.yaml`` itself) can read them from the DB. Its ``active`` flag is
+1 for every site in the current config and 0 for one that was removed: the
+row and all its history stay, the dashboard just stops showing it, and
+re-adding the property makes it active again.
 
 Connection management: every write/read function in this module takes an
 already-open ``sqlite3.Connection`` and commits its own change. Callers own
@@ -97,7 +100,8 @@ CREATE TABLE IF NOT EXISTS sites (
     slug         TEXT NOT NULL UNIQUE,
     display_name TEXT NOT NULL,
     brand_token  TEXT NOT NULL,
-    updated_at   TEXT NOT NULL
+    updated_at   TEXT NOT NULL,
+    active       INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS collection_runs (
@@ -311,6 +315,22 @@ def _migrate_cwv_snapshots(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def _migrate_sites(conn: sqlite3.Connection) -> None:
+    """Add ``sites.active`` to a database created before the column existed.
+
+    ``_SCHEMA``'s ``CREATE TABLE IF NOT EXISTS`` cannot add a column to an
+    existing table. Every existing row starts active (the column default);
+    the next ``collect_once`` retires any that are no longer configured.
+    No-op on a fresh database or one already migrated.
+    """
+    if not _table_exists(conn, "sites"):
+        return
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(sites)").fetchall()}
+    if "active" not in columns:
+        conn.execute("ALTER TABLE sites ADD COLUMN active INTEGER NOT NULL DEFAULT 1")
+        conn.commit()
+
+
 def init_db(path: str | Path) -> sqlite3.Connection:
     """Create the schema at ``path`` if it doesn't already exist.
 
@@ -325,6 +345,7 @@ def init_db(path: str | Path) -> sqlite3.Connection:
 
     conn = sqlite3.connect(db_path)
     _migrate_cwv_snapshots(conn)
+    _migrate_sites(conn)
     conn.executescript(_SCHEMA)
     conn.commit()
     return conn
@@ -607,20 +628,37 @@ def upsert_sites(conn: sqlite3.Connection, rows: Iterable[Mapping]) -> None:
     brand_token, updated_at. Re-upserting the same ``property`` updates the
     existing row in place rather than creating a duplicate, so editing
     ``sites.yaml`` (display name, brand token, or slug) propagates on the
-    next collection run.
+    next collection run. An upserted site is active, so re-adding a retired
+    property brings it (and its history) back.
     """
     conn.executemany(
         """
-        INSERT INTO sites (property, slug, display_name, brand_token, updated_at)
-        VALUES (:property, :slug, :display_name, :brand_token, :updated_at)
+        INSERT INTO sites (property, slug, display_name, brand_token, updated_at, active)
+        VALUES (:property, :slug, :display_name, :brand_token, :updated_at, 1)
         ON CONFLICT (property) DO UPDATE SET
             slug = excluded.slug,
             display_name = excluded.display_name,
             brand_token = excluded.brand_token,
-            updated_at = excluded.updated_at
+            updated_at = excluded.updated_at,
+            active = 1
         """,
         list(rows),
     )
+    conn.commit()
+
+
+def retire_unlisted_sites(conn: sqlite3.Connection, properties: Iterable[str]) -> None:
+    """Mark every ``sites`` row whose property is not in ``properties`` inactive.
+
+    ``properties`` is the full current config. A retired site keeps its row
+    and every collected row; it only stops being listed. Nothing is deleted,
+    because removing a site from the dashboard should not destroy its
+    history, and re-adding it should restore that history.
+    """
+    listed = list(properties)
+    placeholders = ",".join("?" * len(listed))
+    where = f"property NOT IN ({placeholders})" if listed else "1"
+    conn.execute(f"UPDATE sites SET active = 0 WHERE active = 1 AND {where}", listed)
     conn.commit()
 
 

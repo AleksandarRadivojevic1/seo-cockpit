@@ -114,3 +114,50 @@ describe("the add/remove happy paths still write", () => {
     expect(onDisk.map((s: { slug: string }) => s.slug)).toEqual(["second"]);
   });
 });
+
+describe("addSite against retired sites", () => {
+  // A retired site keeps its row, and its slug is UNIQUE in `sites`. Handing
+  // that slug to a different property would make the collector's upsert fail
+  // on the next run; re-adding the same property is how history comes back.
+  let retiredDbPath: string;
+  let previousDbPath: string | undefined;
+
+  beforeAll(() => {
+    previousDbPath = process.env.SEO_DB_PATH;
+    retiredDbPath = path.join(dir, "retired.db");
+    const db = new BetterSqlite3(retiredDbPath);
+    db.exec(`
+      CREATE TABLE sites (
+        property TEXT PRIMARY KEY,
+        slug TEXT NOT NULL UNIQUE,
+        display_name TEXT NOT NULL,
+        brand_token TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        active INTEGER NOT NULL DEFAULT 1
+      );
+      INSERT INTO sites VALUES ('sc-domain:gone.com', 'gone', 'Gone', 'gone', '2026-07-20', 0);
+    `);
+    db.close();
+    process.env.SEO_DB_PATH = retiredDbPath;
+  });
+
+  afterAll(() => {
+    process.env.SEO_DB_PATH = previousDbPath;
+  });
+
+  it("refuses a retired site's slug for a different property", async () => {
+    const state = await addSite(INITIAL, addForm("sc-domain:other.com", "Gone"));
+
+    expect(state.ok).toBe(false);
+    expect(state.errors.slug).toBeTruthy();
+    expect(fs.existsSync(sitesFile)).toBe(false);
+  });
+
+  it("accepts re-adding the retired property itself, which restores its history", async () => {
+    const state = await addSite(INITIAL, addForm("sc-domain:gone.com", "Gone"));
+
+    expect(state).toEqual({ errors: {}, ok: true });
+    const onDisk = JSON.parse(fs.readFileSync(sitesFile, "utf-8"));
+    expect(onDisk.map((s: { property: string }) => s.property)).toEqual(["sc-domain:gone.com"]);
+  });
+});
