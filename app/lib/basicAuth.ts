@@ -64,7 +64,7 @@ export const RENDER_TOKEN_PARAM = "render";
 const REPORT_PAGE = /^\/site\/[^/]+\/report$/;
 // Files in public/ (the report's logo and Next's stock icons) sit at the top
 // level; no app route does, so a GET there can only be a static file.
-const PUBLIC_IMAGE = /^\/[\w.-]+\.(?:svg|png|ico|jpe?g|webp)$/;
+export const PUBLIC_IMAGE = /^\/[\w.-]+\.(?:svg|png|ico|jpe?g|webp)$/;
 
 export interface AuthRequest {
   method: string;
