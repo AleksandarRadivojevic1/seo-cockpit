@@ -234,6 +234,43 @@ docker exec seo-cockpit-collector printenv SEO_REFRESH_TRIGGER_PATH        # sam
 
 ---
 
+## 1d. Client share links (`clients.deimos.agency`)
+
+A client gets a link like `https://clients.deimos.agency/share/<token>`. It
+opens their report (their site's language, SR / EN switch, PDF download) and a
+read-only **Live data** tab, and nothing else: on that address every other path
+is a 404, and the token alone decides which site is shown.
+
+- **Create a link** on the site's page ("Share with client"). The URL is shown
+  **once**: only a hash of its token is stored (`config/share-links.json`), so a
+  lost link is revoked and replaced, never recovered.
+- **List and revoke** links at `/sites/links`. Links never expire. Removing a
+  site stops its links too.
+- **`SEO_INTERNAL_HOSTS`** lists the `Host` values that get the admin app (still
+  behind the password): `192.168.1.156:8091,piserver.local:8091,localhost:8091`.
+  **If your own dashboard suddenly shows "Not found", you reached it under a
+  host that isn't listed** (e.g. `piserver:8091`): add it to the compose file and
+  the live file, then recreate the dashboard.
+- **The tunnel** (`seo-cockpit-tunnel`, `cloudflare/cloudflared:2026.9.3`) dials
+  out to Cloudflare; the Pi opens no inbound port. Its public hostname
+  `clients.deimos.agency` → `http://seo-cockpit-dashboard:3000` is set in
+  Cloudflare (Zero Trust → Networks → Tunnels → `seo-cockpit`).
+- **`SEO_TUNNEL_TOKEN`** is the tunnel's run token. Copy it from that tunnel's
+  page in the Cloudflare dashboard into `~/server/.env`; never paste it anywhere
+  else. Add the `seo-cockpit-tunnel` service to the live compose file only after
+  the token is set: its `:?` stops `docker compose` for the whole stack until
+  then.
+
+Verify after a deploy:
+
+```bash
+docker logs seo-cockpit-tunnel 2>&1 | grep -i "registered tunnel connection"
+curl -s -o /dev/null -w '%{http_code}\n' https://clients.deimos.agency/          # 404
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8091/                   # 401
+```
+
+---
+
 ## 2. Secrets
 
 Two credentials, and they are different things:

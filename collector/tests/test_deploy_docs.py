@@ -59,3 +59,9 @@ def test_restore_runbook_steps_run_in_order():
 def test_restore_runbook_explains_the_dashboard_restart():
     # getDb() memoizes one connection per path for the life of the process.
     assert "getDb()" in _restore_section()
+
+
+def test_runbook_covers_client_share_links():
+    text = RUNBOOK.read_text()
+    for needle in ("SEO_INTERNAL_HOSTS", "SEO_TUNNEL_TOKEN", "clients.deimos.agency", "/sites/links"):
+        assert needle in text, needle

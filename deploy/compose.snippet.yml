@@ -148,6 +148,16 @@ services:
       # `[auth] Basic auth enabled`.
       SEO_DASHBOARD_PASSWORD: ${SEO_DASHBOARD_PASSWORD:?set SEO_DASHBOARD_PASSWORD in ~/server/.env}
       SEO_DASHBOARD_USER: ${SEO_DASHBOARD_USER:-acko}
+      # Client share links (docs/superpowers/specs/2026-10-09-client-share-links-design.md).
+      # Hosts that get the admin app (still behind the password): the Host
+      # header values you use on the LAN / WireGuard. Any other host, the
+      # tunnel's included, only serves /share/* and 404s everything else.
+      # An unlisted own host gets a 404: add it here and in the live file.
+      SEO_INTERNAL_HOSTS: ${SEO_INTERNAL_HOSTS:-192.168.1.156:8091,piserver.local:8091,localhost:8091}
+      # The address clients open; share URLs are built from it.
+      SEO_PUBLIC_BASE_URL: ${SEO_PUBLIC_BASE_URL:-https://clients.deimos.agency}
+      # The link store (hashes only), in the :rw config mount.
+      SEO_SHARE_LINKS_PATH: ${SEO_SHARE_LINKS_PATH:-/config/share-links.json}
       # Where the add-site form writes dashboard-added sites. Same path the
       # collector reads (SEO_USER_SITES_PATH above), inside the :rw config mount
       # below. This is the ONE thing the dashboard writes; the DB stays :ro.
@@ -188,3 +198,20 @@ services:
       # bringing this up (`docker compose ps`, `ss -ltnp | grep 8091`); if it
       # is taken, change the host side here and in the Homepage tile.
       - "8091:3000"
+
+  seo-cockpit-tunnel:
+    # Cloudflare Tunnel for clients.deimos.agency. Dials OUT to Cloudflare, so
+    # the Pi opens no inbound port and 8091 stays LAN-only. The public
+    # hostname → http://seo-cockpit-dashboard:3000 route lives in the tunnel's
+    # remote config in Cloudflare (Zero Trust → Networks → Tunnels).
+    # Add this service to the live file only AFTER SEO_TUNNEL_TOKEN is in
+    # ~/server/.env: the :? below stops `docker compose` for the whole stack
+    # until it is set.
+    image: cloudflare/cloudflared:2026.9.3
+    container_name: seo-cockpit-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${SEO_TUNNEL_TOKEN:?set SEO_TUNNEL_TOKEN in ~/server/.env}
+    depends_on:
+      - seo-cockpit-dashboard
