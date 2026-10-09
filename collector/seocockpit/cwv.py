@@ -36,6 +36,15 @@ _PSI_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
 _API_KEY_ENV_VAR = "GOOGLE_API_KEY"
 _FORM_FACTOR = "PHONE"
 
+# Network timeouts, in seconds. Without them urlopen blocks forever on a
+# server that accepts the connection and never answers, and the daily job
+# holds the run lock for the whole collection, so one hung call would stall
+# every later run until the container restarts. A timeout raises instead,
+# and collect.py records it as the site's ``cwv_error``. PSI runs a full
+# Lighthouse audit (roughly 10-30s per URL), so it gets the longer budget.
+_CRUX_TIMEOUT_S = 20
+_PSI_TIMEOUT_S = 90
+
 # Lighthouse category id in the PSI response -> CwvSnapshot field name.
 # PSI reports scores as 0-1 floats; we store them as the 0-100 Lighthouse
 # shows in its UI.
@@ -139,7 +148,7 @@ def _default_crux_query(url: str) -> dict | None:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request) as response:
+        with urllib.request.urlopen(request, timeout=_CRUX_TIMEOUT_S) as response:
             return json.load(response)["record"]
     except urllib.error.HTTPError as exc:
         error_body = exc.read()
@@ -174,7 +183,9 @@ def _default_psi_query(url: str) -> dict | None:
             *((("category"), category) for category in _LIGHTHOUSE_CATEGORIES),
         ]
     )
-    with urllib.request.urlopen(f"{_PSI_ENDPOINT}?{params}") as response:
+    with urllib.request.urlopen(
+        f"{_PSI_ENDPOINT}?{params}", timeout=_PSI_TIMEOUT_S
+    ) as response:
         return json.load(response)
 
 

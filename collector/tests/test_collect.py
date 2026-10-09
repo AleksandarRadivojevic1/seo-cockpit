@@ -11,7 +11,7 @@ from seocockpit.collect import (
     collect_once,
 )
 from seocockpit.config import Config, Site
-from seocockpit.cwv import CwvSnapshot
+from seocockpit.cwv import CwvSnapshot, fetch_cwv
 from seocockpit.db import init_db, upsert_totals
 from seocockpit.gsc import SearchAnalytics
 
@@ -458,6 +458,46 @@ def test_cwv_failure_leaves_the_run_successful_with_gsc_rows_counted(tmp_path, c
         == 1
     )
     assert conn.execute("SELECT COUNT(*) FROM cwv_snapshots").fetchone()[0] == 0
+
+
+def test_a_psi_timeout_keeps_the_site_successful_with_cwv_error_set(tmp_path, conn):
+    """What the urlopen timeout turns a hung PSI call into: a ``TimeoutError``
+    out of the real ``fetch_cwv`` (no CrUX data to fall back on), recorded as
+    ``cwv_error`` on a run that still succeeds and finishes.
+    """
+    config = _config(
+        tmp_path,
+        sites=[Site(property=SITE_A, slug="site-a", display_name="A", brand_token="a")],
+    )
+
+    def fetch_analytics(service, property, start, end):
+        return _sa(property, "2026-07-15")
+
+    def psi_query(url):
+        raise TimeoutError("The read operation timed out")
+
+    def fetch_cwv_fn(url):
+        return fetch_cwv(url, crux_query=lambda u: None, psi_query=psi_query)
+
+    results = collect_once(
+        config,
+        mode="incremental",
+        conn=conn,
+        service=object(),
+        fetch_analytics=fetch_analytics,
+        fetch_cwv_fn=fetch_cwv_fn,
+        today=datetime.date(2026, 7, 24),
+    )
+
+    assert results[0]["status"] == "success"
+    assert results[0]["rows"] == GSC_ROWS_PER_SITE
+    assert "timed out" in results[0]["cwv_error"]
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) FROM totals_daily WHERE site=?", (SITE_A,)
+        ).fetchone()[0]
+        == 1
+    )
 
 
 def test_a_gsc_failure_is_still_a_failed_run(tmp_path, conn):

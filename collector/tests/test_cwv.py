@@ -341,3 +341,52 @@ def test_default_psi_query_asks_for_all_four_lighthouse_categories(monkeypatch):
         "seo",
     ]
     assert requested["strategy"] == ["mobile"]
+
+
+# ---------------------------------------------------------------------------
+# Network timeouts: a hung CrUX/PSI call must not hold the run lock forever
+# ---------------------------------------------------------------------------
+
+
+def _capture_urlopen_timeout(monkeypatch, body: bytes) -> dict:
+    """Swap ``urlopen`` for a fake that records the ``timeout`` it was given."""
+    import io
+    import urllib.request
+
+    seen: dict = {}
+
+    def fake_urlopen(url, *args, **kwargs):
+        seen["timeout"] = kwargs.get("timeout", args[1] if len(args) > 1 else None)
+        return io.BytesIO(body)
+
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    return seen
+
+
+def test_default_crux_query_sets_a_network_timeout(monkeypatch):
+    """Without a timeout, urlopen blocks forever on a silent server, and the
+    daily job holds ``_run_lock`` for the whole collection -- one hung call
+    stalls every later run until the container restarts.
+    """
+    from seocockpit.cwv import _CRUX_TIMEOUT_S, _default_crux_query
+
+    seen = _capture_urlopen_timeout(monkeypatch, b'{"record": {"metrics": {}}}')
+
+    _default_crux_query("https://example.com/")
+
+    assert seen["timeout"] == _CRUX_TIMEOUT_S
+    assert 0 < _CRUX_TIMEOUT_S <= 60
+
+
+def test_default_psi_query_sets_a_network_timeout(monkeypatch):
+    """PSI is slow (10-30s a URL), so its timeout must leave room for a
+    normal audit while still bounding a hang."""
+    from seocockpit.cwv import _PSI_TIMEOUT_S, _default_psi_query
+
+    seen = _capture_urlopen_timeout(monkeypatch, b'{"lighthouseResult": {}}')
+
+    _default_psi_query("https://example.com/")
+
+    assert seen["timeout"] == _PSI_TIMEOUT_S
+    assert 30 < _PSI_TIMEOUT_S <= 180
