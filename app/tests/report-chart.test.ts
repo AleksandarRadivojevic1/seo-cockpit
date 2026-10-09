@@ -99,3 +99,15 @@ describe("buildTrendPaths", () => {
     for (const t of out.ticks) expect(t.label).not.toMatch(/[Ѐ-ӿ]/);
   });
 });
+
+describe("buildTrendPaths in English", () => {
+  it("labels the first and last date month first", () => {
+    const out = buildTrendPaths([p("2026-07-01", 1), p("2026-07-17", 2)], 300, 60, "en");
+    expect(out.ticks.map((t) => t.label)).toEqual(["July 1", "July 17"]);
+  });
+
+  it("still labels in Serbian by default", () => {
+    const out = buildTrendPaths([p("2026-07-01", 1), p("2026-07-17", 2)], 300, 60);
+    expect(out.ticks.map((t) => t.label)).toEqual(["1. jul", "17. jul"]);
+  });
+});

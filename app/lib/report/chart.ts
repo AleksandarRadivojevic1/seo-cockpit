@@ -1,5 +1,6 @@
-import { SR_LOCALE } from "./format";
+import { EN_LOCALE, SR_LOCALE } from "./format";
 import type { TrendPointSr } from "./data";
+import type { ReportLanguage } from "./language";
 
 export interface TrendPaths {
   /** One `d` attribute per unbroken run of collected days. */
@@ -8,15 +9,14 @@ export interface TrendPaths {
   ticks: { x: number; label: string }[];
 }
 
-const DAY_MONTH = new Intl.DateTimeFormat(SR_LOCALE, {
-  day: "numeric",
-  month: "long",
-  timeZone: "UTC",
-});
+const DAY_MONTH: Record<ReportLanguage, Intl.DateTimeFormat> = {
+  sr: new Intl.DateTimeFormat(SR_LOCALE, { day: "numeric", month: "long", timeZone: "UTC" }),
+  en: new Intl.DateTimeFormat(EN_LOCALE, { day: "numeric", month: "long", timeZone: "UTC" }),
+};
 
-function shortDate(iso: string): string {
+function shortDate(iso: string, lang: ReportLanguage): string {
   const [y, m, d] = iso.split("-").map(Number);
-  return DAY_MONTH.format(new Date(Date.UTC(y, m - 1, d)));
+  return DAY_MONTH[lang].format(new Date(Date.UTC(y, m - 1, d)));
 }
 
 /**
@@ -37,7 +37,8 @@ function shortDate(iso: string): string {
 export function buildTrendPaths(
   points: TrendPointSr[],
   width: number,
-  height: number
+  height: number,
+  lang: ReportLanguage = "sr"
 ): TrendPaths {
   if (points.length === 0) return { segments: [], max: 0, ticks: [] };
 
@@ -68,10 +69,10 @@ export function buildTrendPaths(
   const ticks =
     points.length > 1
       ? [
-          { x: 0, label: shortDate(points[0].date) },
-          { x: width, label: shortDate(points[points.length - 1].date) },
+          { x: 0, label: shortDate(points[0].date, lang) },
+          { x: width, label: shortDate(points[points.length - 1].date, lang) },
         ]
-      : [{ x: 0, label: shortDate(points[0].date) }];
+      : [{ x: 0, label: shortDate(points[0].date, lang) }];
 
   return { segments, max, ticks };
 }

@@ -1,6 +1,7 @@
 import { buildTrendPaths } from "../../lib/report/chart";
-import { formatIntSr } from "../../lib/report/format";
 import type { TrendPointSr } from "../../lib/report/data";
+import { reportFormat } from "../../lib/report/format";
+import { reportStrings, type ReportLanguage } from "../../lib/report/language";
 
 const W = 640;
 const H = 150;
@@ -20,8 +21,14 @@ const PAD_B = 18;
  * and the print stylesheet forces a light page regardless of the reader's
  * OS colour scheme.
  */
-export default function ReportChart({ points }: { points: TrendPointSr[] }) {
-  const { segments, max, ticks } = buildTrendPaths(points, W - PAD_L, H - PAD_B);
+export default function ReportChart({
+  points,
+  lang = "sr",
+}: {
+  points: TrendPointSr[];
+  lang?: ReportLanguage;
+}) {
+  const { segments, max, ticks } = buildTrendPaths(points, W - PAD_L, H - PAD_B, lang);
   if (segments.length === 0) return null;
 
   return (
@@ -29,7 +36,7 @@ export default function ReportChart({ points }: { points: TrendPointSr[] }) {
       viewBox={`0 0 ${W} ${H}`}
       className="block h-auto w-full"
       role="img"
-      aria-label="Prikazi kroz vreme"
+      aria-label={reportStrings(lang).trend}
     >
       <g transform={`translate(${PAD_L},0)`}>
         {[0, 0.5, 1].map((f) => (
@@ -56,7 +63,7 @@ export default function ReportChart({ points }: { points: TrendPointSr[] }) {
         ))}
       </g>
       <text x={0} y={10} fontSize={10} fill="#8990a0">
-        {formatIntSr(max)}
+        {reportFormat(lang).int(max)}
       </text>
       <text x={0} y={H - PAD_B} fontSize={10} fill="#8990a0">
         0

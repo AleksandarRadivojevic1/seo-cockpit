@@ -1,3 +1,4 @@
+import type { ReportLanguage } from "./language";
 
 /**
  * Serbian **Latin** locale.
@@ -98,4 +99,84 @@ export function pluralSr(n: number, forms: [string, string, string]): string {
   if (category === "one") return forms[0];
   if (category === "few") return forms[1];
   return forms[2];
+}
+
+export const EN_LOCALE = "en-US";
+
+/** The report's number, date and plural formatting for one language. */
+export interface ReportFormat {
+  int(n: number): string;
+  decimal(n: number, digits?: number): string;
+  percent(fraction: number): string;
+  date(iso: string): string;
+  period(startISO: string, endISO: string): string;
+  plural(n: number, forms: [string, string, string]): string;
+}
+
+const EN_INT = new Intl.NumberFormat(EN_LOCALE, { maximumFractionDigits: 0 });
+const EN_PERCENT_1 = new Intl.NumberFormat(EN_LOCALE, {
+  style: "percent",
+  maximumFractionDigits: 1,
+});
+const EN_PLURAL = new Intl.PluralRules(EN_LOCALE);
+const EN_MONTH = new Intl.DateTimeFormat(EN_LOCALE, { month: "long", timeZone: "UTC" });
+
+function enMonth(iso: string): string {
+  const { year, month, day } = utcParts(iso);
+  return EN_MONTH.format(new Date(Date.UTC(year, month - 1, day)));
+}
+
+/** `September 9, 2026`: month first, no trailing dot. */
+function enDate(iso: string): string {
+  const { day, year } = utcParts(iso);
+  return `${enMonth(iso)} ${day}, ${year}`;
+}
+
+/**
+ * Collapses what the two ends share, like `formatPeriodSr`. A one-day span is
+ * just that day; `September 9–9, 2026` would read as a typo.
+ */
+function enPeriod(startISO: string, endISO: string): string {
+  if (startISO === endISO) return enDate(startISO);
+  const s = utcParts(startISO);
+  const e = utcParts(endISO);
+  if (s.year === e.year && s.month === e.month) {
+    return `${enMonth(startISO)} ${s.day}–${e.day}, ${e.year}`;
+  }
+  if (s.year === e.year) {
+    return `${enMonth(startISO)} ${s.day} – ${enMonth(endISO)} ${e.day}, ${e.year}`;
+  }
+  return `${enDate(startISO)} – ${enDate(endISO)}`;
+}
+
+/** English never selects "few", so the third slot carries the plural. */
+function enPlural(n: number, forms: [string, string, string]): string {
+  return EN_PLURAL.select(n) === "one" ? forms[0] : forms[2];
+}
+
+const SR_FORMAT: ReportFormat = {
+  int: formatIntSr,
+  decimal: formatDecimalSr,
+  percent: formatPercentSr,
+  date: formatDateSr,
+  period: formatPeriodSr,
+  plural: pluralSr,
+};
+
+const EN_FORMAT: ReportFormat = {
+  int: (n) => EN_INT.format(n),
+  decimal: (n, digits = 1) =>
+    new Intl.NumberFormat(EN_LOCALE, {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(n),
+  percent: (fraction) => EN_PERCENT_1.format(fraction),
+  date: enDate,
+  period: enPeriod,
+  plural: enPlural,
+};
+
+/** The report's formatting in `lang`. The Serbian set is the functions above, unchanged. */
+export function reportFormat(lang: ReportLanguage): ReportFormat {
+  return lang === "en" ? EN_FORMAT : SR_FORMAT;
 }
