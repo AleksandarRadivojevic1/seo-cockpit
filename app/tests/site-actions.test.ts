@@ -161,3 +161,16 @@ describe("addSite against retired sites", () => {
     expect(onDisk.map((s: { property: string }) => s.property)).toEqual(["sc-domain:gone.com"]);
   });
 });
+
+describe("addSite saves the report language", () => {
+  it("stores the language chosen in the form", async () => {
+    const form = addForm("sc-domain:us-client.com", "US Client");
+    form.set("language", "en");
+
+    const state = await addSite(INITIAL, form);
+
+    expect(state).toEqual({ errors: {}, ok: true });
+    const onDisk = JSON.parse(fs.readFileSync(sitesFile, "utf-8"));
+    expect(onDisk[0].language).toBe("en");
+  });
+});

@@ -204,3 +204,43 @@ describe("writeUserSitesAtomic keeps the previous file as .bak", () => {
     expect(readUserSites(file).map((s) => s.slug)).toEqual(["a", "b"]);
   });
 });
+
+describe("report language on dashboard-added sites", () => {
+  let dir: string | undefined;
+  afterEach(() => {
+    if (dir) fs.rmSync(dir, { recursive: true, force: true });
+    dir = undefined;
+  });
+
+  const input = { property: "sc-domain:us.example", displayName: "US Client", brandToken: "us" };
+
+  it("saves English when chosen and Serbian otherwise", () => {
+    expect(validateNewSite({ ...input, language: "en" }, [], []).site?.language).toBe("en");
+    expect(validateNewSite(input, [], []).site?.language).toBe("sr");
+    expect(validateNewSite({ ...input, language: "fr" }, [], []).site?.language).toBe("sr");
+  });
+
+  it("writes the language to disk and reads it back", () => {
+    dir = tmp();
+    const file = path.join(dir, "user-sites.json");
+    const site = validateNewSite({ ...input, language: "en" }, [], []).site!;
+    writeUserSitesAtomic(file, [site]);
+    expect(JSON.parse(fs.readFileSync(file, "utf-8"))[0].language).toBe("en");
+    expect(readUserSites(file)[0].language).toBe("en");
+  });
+
+  it("drops a junk language instead of carrying it forward", () => {
+    dir = tmp();
+    const file = path.join(dir, "user-sites.json");
+    fs.writeFileSync(
+      file,
+      JSON.stringify([
+        { property: "sc-domain:a.com", slug: "a", display_name: "A", brand_token: "a", language: "fr" },
+      ]),
+    );
+    const [site] = readUserSites(file);
+    expect(site.language).toBeUndefined();
+    writeUserSitesAtomic(file, [site]);
+    expect(JSON.parse(fs.readFileSync(file, "utf-8"))[0]).not.toHaveProperty("language");
+  });
+});

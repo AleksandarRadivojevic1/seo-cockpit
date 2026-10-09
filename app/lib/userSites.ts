@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { isReportLanguage, type ReportLanguage } from "./report/language";
+
 /**
  * A site added from the dashboard rather than seeded in collector/sites.yaml.
  *
@@ -18,6 +20,12 @@ export interface UserSite {
   trendSeeds: string[];
   serpLocation: string | null;
   addedAt: string;
+  /**
+   * Client-report language. Optional on disk: a file written before this
+   * field existed round-trips unchanged, and the collector reads a missing
+   * value as `sr`.
+   */
+  language?: ReportLanguage;
 }
 
 export interface NewSiteInput {
@@ -28,6 +36,7 @@ export interface NewSiteInput {
   discoverSeeds?: string[];
   trendSeeds?: string[];
   serpLocation?: string | null;
+  language?: string;
 }
 
 export function slugify(name: string): string {
@@ -86,6 +95,7 @@ export function validateNewSite(
       discoverSeeds: input.discoverSeeds ?? [],
       trendSeeds: input.trendSeeds ?? [],
       serpLocation: input.serpLocation ?? null,
+      language: input.language === "en" ? "en" : "sr",
       addedAt: new Date().toISOString(),
     },
     errors: {},
@@ -101,6 +111,7 @@ interface DiskSite {
   trend_seeds: string[];
   serp_location: string | null;
   added_at: string;
+  language?: string;
 }
 
 function toDisk(s: UserSite): DiskSite {
@@ -113,6 +124,9 @@ function toDisk(s: UserSite): DiskSite {
     trend_seeds: s.trendSeeds,
     serp_location: s.serpLocation,
     added_at: s.addedAt,
+    // Undefined is dropped by JSON.stringify, so a site without a language
+    // is written exactly as before.
+    language: s.language,
   };
 }
 
@@ -126,6 +140,9 @@ function fromDisk(d: DiskSite): UserSite {
     trendSeeds: d.trend_seeds ?? [],
     serpLocation: d.serp_location ?? null,
     addedAt: d.added_at,
+    // Only a valid language is carried; a junk value is dropped on the next
+    // write rather than preserved (the collector already reads it as `sr`).
+    ...(isReportLanguage(d.language) ? { language: d.language } : {}),
   };
 }
 

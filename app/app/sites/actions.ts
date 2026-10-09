@@ -78,6 +78,7 @@ export async function addSite(
       discoverSeeds: splitList(formData.get("discoverSeeds")),
       trendSeeds: splitList(formData.get("trendSeeds")),
       serpLocation: serpLocationRaw || null,
+      language: String(formData.get("language") ?? ""),
     },
     existingSlugs,
     existingProperties,

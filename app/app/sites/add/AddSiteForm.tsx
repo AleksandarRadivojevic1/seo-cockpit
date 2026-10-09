@@ -107,6 +107,16 @@ export default function AddSiteForm() {
         />
       </Field>
 
+      <Field
+        label="Report language"
+        hint="Language of the client report and its PDF. The dashboard stays in English."
+      >
+        <select name="language" defaultValue="sr" className={inputClass}>
+          <option value="sr">Serbian</option>
+          <option value="en">English</option>
+        </select>
+      </Field>
+
       <details className="rounded-lg border border-border bg-card p-3">
         <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
           Advanced (optional)
