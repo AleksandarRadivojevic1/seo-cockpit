@@ -102,7 +102,7 @@ export default function ReportDocument({
   return (
     <div lang={lang} className="report mx-auto w-full max-w-[210mm] bg-white text-neutral-900">
       {toolbar ? (
-        <div className="flex items-center justify-end gap-4 p-4 print:hidden">{toolbar}</div>
+        <div className="flex flex-wrap items-center justify-end gap-4 p-4 print:hidden">{toolbar}</div>
       ) : null}
 
       {/* Page 1 — dark branded cover (full-bleed in print via @page cover). */}

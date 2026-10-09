@@ -380,6 +380,37 @@
 .rb-foot { margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--rpt-line); display: flex; justify-content: space-between; font-size: 11px; color: var(--rpt-faint); }
 .rb-foot a { color: var(--rpt-accent); text-decoration: none; }
 
+/* Phone screens. Everything above is sized for an A4 sheet -- 24mm gutters,
+   three KPI columns, a fixed growth label -- which leaves ~210px of content on
+   a phone and pushes the numbers off the right edge. `screen` only, so the
+   PDF keeps its paper layout untouched. */
+@media screen and (max-width: 640px) {
+  .report-cover { min-height: 100svh; padding: 28px 20px 24px; }
+  .rc-mid { padding: 40px 0; }
+  .rc-client { font-size: 40px; }
+  .rc-foot { flex-wrap: wrap; gap: 12px; }
+
+  .report-body { padding: 28px 20px 24px; }
+  .rb-head { flex-direction: column; align-items: flex-start; gap: 8px; }
+
+  /* KPIs stack as rows: number left, unit and delta beside it. The subgrid
+     shares one number column across rows so the units line up. */
+  .rb-kpis { grid-template-columns: max-content 1fr; column-gap: 14px; }
+  .rb-kpi { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: baseline; padding: 12px 0; }
+  .rb-kpi .rb-delta { grid-column: 2; }
+  .rb-kpi + .rb-kpi { border-left: 0; padding-left: 0; border-top: 1px solid var(--rpt-line); }
+  .rb-kpi .n { font-size: 32px; }
+  .rb-kpi .u, .rb-kpi .rb-delta { margin-top: 0; }
+
+  /* Growth: label on its own line, numbers and delta share the next. */
+  .rb-growth-row { flex-wrap: wrap; row-gap: 4px; column-gap: 12px; }
+  .rb-growth-row .lbl { width: 100%; }
+  .rb-growth-row .val { font-size: 19px; }
+
+  /* Unbroken paths and queries would otherwise force the table wider. */
+  .report td { overflow-wrap: anywhere; }
+}
+
 @media print {
   /* The cover prints full-bleed via @page cover; keep its dark graphics. */
   .report-cover { print-color-adjust: exact; -webkit-print-color-adjust: exact; break-after: page; }
