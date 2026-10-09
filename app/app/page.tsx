@@ -10,6 +10,7 @@ import RunNowButton from "../components/RunNowButton";
 import PortfolioTrend from "../components/PortfolioTrend";
 import type { PortfolioPoint } from "../components/PortfolioTrend";
 import SiteStrip from "../components/SiteStrip";
+import UserSitesFileNotice from "../components/UserSitesFileNotice";
 import { deriveSignals } from "../lib/analysis/signals";
 import { addDaysUTC, recentVsPrior, windowBounds } from "../lib/analysis/windows";
 import { latestRunPerSite, listSiteConfigs, totalsInRange } from "../lib/db";
@@ -17,7 +18,7 @@ import { buildCollectorHealth } from "../lib/health";
 import { mergeDailySeries, portfolioTotals, rankOpportunities } from "../lib/overview";
 import { classifyUserSites } from "../lib/pendingSites";
 import { buildSiteSummary } from "../lib/portfolio";
-import { readUserSites } from "../lib/userSites";
+import { loadUserSites, userSitesFileError } from "../lib/userSites";
 
 /** Highest-upside queries listed on the overview. */
 const OPPORTUNITY_LIMIT = 6;
@@ -76,9 +77,17 @@ export default async function Home() {
   const health = buildCollectorHealth(runs, configs, now, scheduleConfig());
 
   // Dashboard-added sites not yet collected (or whose run failed). Collected
-  // ones are filtered out inside PendingSites and appear via SiteStrip.
+  // ones are filtered out inside PendingSites and appear via SiteStrip. A
+  // malformed file lists nothing here, so it gets its own notice instead of
+  // passing for "no user sites".
+  const userSitesPath = process.env.SEO_USER_SITES_PATH;
+  const userSitesFile = loadUserSites(userSitesPath);
+  const userSitesNotice =
+    userSitesFile.state === "malformed" && userSitesPath
+      ? userSitesFileError(userSitesPath, userSitesFile.error)
+      : null;
   const classifiedUserSites = classifyUserSites(
-    readUserSites(process.env.SEO_USER_SITES_PATH),
+    userSitesFile.state === "ok" ? userSitesFile.sites : [],
     configs,
     runs,
   );
@@ -135,6 +144,8 @@ export default async function Home() {
           </Link>
         </div>
       </header>
+
+      <UserSitesFileNotice message={userSitesNotice} />
 
       {summaries.length === 0 ? (
         hasAwaiting ? (

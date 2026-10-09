@@ -7,6 +7,7 @@ import {
   isValidProperty,
   isValidSlug,
   validateNewSite,
+  loadUserSites,
   readUserSites,
   writeUserSitesAtomic,
   type UserSite,
@@ -109,5 +110,97 @@ describe("read/write round-trip (snake_case on disk)", () => {
     const file = path.join(dir, "user-sites.json");
     fs.writeFileSync(file, "{ not json");
     expect(readUserSites(file)).toEqual([]);
+  });
+});
+
+describe("loadUserSites: missing, ok and malformed are different answers", () => {
+  let dir: string | undefined;
+  afterEach(() => {
+    if (dir) fs.rmSync(dir, { recursive: true, force: true });
+    dir = undefined;
+  });
+
+  const site: UserSite = {
+    property: "sc-domain:agency.com",
+    slug: "agency",
+    displayName: "Agency",
+    brandToken: "agency",
+    discoverSeeds: [],
+    trendSeeds: [],
+    serpLocation: null,
+    addedAt: "2026-09-14T12:00:00Z",
+  };
+
+  it("reports a missing file or undefined path as missing", () => {
+    dir = tmp();
+    expect(loadUserSites(undefined)).toEqual({ state: "missing" });
+    expect(loadUserSites(path.join(dir, "nope.json"))).toEqual({ state: "missing" });
+  });
+
+  it("reports a readable array as ok, with its sites", () => {
+    dir = tmp();
+    const file = path.join(dir, "user-sites.json");
+    writeUserSitesAtomic(file, [site]);
+    expect(loadUserSites(file)).toEqual({ state: "ok", sites: [site] });
+  });
+
+  it("reports unparseable JSON as malformed, carrying the parse error", () => {
+    dir = tmp();
+    const file = path.join(dir, "user-sites.json");
+    fs.writeFileSync(file, "{ not json");
+    const result = loadUserSites(file);
+    expect(result.state).toBe("malformed");
+    if (result.state !== "malformed") throw new Error("unreachable");
+    expect(result.error).toMatch(/JSON/);
+  });
+
+  it("reports a non-array payload as malformed", () => {
+    dir = tmp();
+    const file = path.join(dir, "user-sites.json");
+    fs.writeFileSync(file, JSON.stringify({ property: "sc-domain:agency.com" }));
+    expect(loadUserSites(file)).toMatchObject({ state: "malformed", error: expect.stringMatching(/array/) });
+  });
+
+  it("reports a non-object entry as malformed rather than rewriting it away", () => {
+    dir = tmp();
+    const file = path.join(dir, "user-sites.json");
+    fs.writeFileSync(file, JSON.stringify([{ property: "sc-domain:a.com", slug: "a" }, "oops"]));
+    expect(loadUserSites(file)).toMatchObject({ state: "malformed", error: expect.stringMatching(/entry 2/) });
+  });
+});
+
+describe("writeUserSitesAtomic keeps the previous file as .bak", () => {
+  let dir: string | undefined;
+  afterEach(() => {
+    if (dir) fs.rmSync(dir, { recursive: true, force: true });
+    dir = undefined;
+  });
+
+  const site = (slug: string): UserSite => ({
+    property: `sc-domain:${slug}.com`,
+    slug,
+    displayName: slug,
+    brandToken: slug,
+    discoverSeeds: [],
+    trendSeeds: [],
+    serpLocation: null,
+    addedAt: "2026-09-14T12:00:00Z",
+  });
+
+  it("writes no .bak when there was no file before", () => {
+    dir = tmp();
+    const file = path.join(dir, "user-sites.json");
+    writeUserSitesAtomic(file, [site("a")]);
+    expect(fs.existsSync(`${file}.bak`)).toBe(false);
+  });
+
+  it("copies the current file to .bak before replacing it", () => {
+    dir = tmp();
+    const file = path.join(dir, "user-sites.json");
+    writeUserSitesAtomic(file, [site("a")]);
+    const first = fs.readFileSync(file, "utf-8");
+    writeUserSitesAtomic(file, [site("a"), site("b")]);
+    expect(fs.readFileSync(`${file}.bak`, "utf-8")).toBe(first);
+    expect(readUserSites(file).map((s) => s.slug)).toEqual(["a", "b"]);
   });
 });

@@ -129,28 +129,79 @@ function fromDisk(d: DiskSite): UserSite {
   };
 }
 
-/** Read the user-sites file. Missing/undefined/malformed all yield []. */
-export function readUserSites(filePath: string | undefined): UserSite[] {
-  if (!filePath) return [];
+/**
+ * What is on disk, as three different answers. "missing" (nothing added yet)
+ * and "malformed" (a bad hand edit) must not look alike: an add or remove
+ * that treated a malformed file as empty would write back a list without
+ * every site the file held.
+ */
+export type UserSitesFile =
+  | { state: "missing" }
+  | { state: "ok"; sites: UserSite[] }
+  | { state: "malformed"; error: string };
+
+export function loadUserSites(filePath: string | undefined): UserSitesFile {
+  if (!filePath) return { state: "missing" };
   let text: string;
   try {
     text = fs.readFileSync(filePath, "utf-8");
-  } catch {
-    return [];
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return { state: "missing" };
+    // Present but unreadable is not "missing": writing over it is still a loss.
+    return { state: "malformed", error: `could not be read: ${(e as Error).message}` };
   }
+  let raw: unknown;
   try {
-    const raw = JSON.parse(text);
-    if (!Array.isArray(raw)) return [];
-    return raw.map(fromDisk);
-  } catch {
-    return [];
+    raw = JSON.parse(text);
+  } catch (e) {
+    return { state: "malformed", error: `invalid JSON: ${(e as Error).message}` };
   }
+  if (!Array.isArray(raw)) {
+    return { state: "malformed", error: "expected a JSON array of sites" };
+  }
+  const bad = raw.findIndex((entry) => typeof entry !== "object" || entry === null || Array.isArray(entry));
+  if (bad !== -1) {
+    return { state: "malformed", error: `entry ${bad + 1} is not an object` };
+  }
+  return { state: "ok", sites: (raw as DiskSite[]).map(fromDisk) };
 }
 
-/** Write the user-sites file atomically (temp file + rename). */
+/**
+ * Read the user-sites file for display. Missing/undefined/malformed all yield
+ * []. Anything that writes the file back must use loadUserSites instead, so a
+ * malformed file is refused rather than overwritten.
+ */
+export function readUserSites(filePath: string | undefined): UserSite[] {
+  const file = loadUserSites(filePath);
+  return file.state === "ok" ? file.sites : [];
+}
+
+/**
+ * Write the user-sites file atomically (temp file + rename), first copying
+ * the current file to `<file>.bak` so the previous version survives a bad
+ * write.
+ */
 export function writeUserSitesAtomic(filePath: string, sites: UserSite[]): void {
   const dir = path.dirname(filePath);
   const tmpPath = path.join(dir, `.user-sites.${process.pid}.${Date.now()}.tmp`);
   fs.writeFileSync(tmpPath, JSON.stringify(sites.map(toDisk), null, 2), "utf-8");
+  try {
+    fs.copyFileSync(filePath, `${filePath}.bak`);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
+      fs.rmSync(tmpPath, { force: true });
+      throw e;
+    }
+  }
   fs.renameSync(tmpPath, filePath);
+}
+
+/** The message shown wherever a malformed user-sites file blocks a change. */
+export function userSitesFileError(filePath: string, error: string): string {
+  return (
+    `${filePath} could not be parsed (${error}). Adding and removing sites is ` +
+    `paused so the file isn't overwritten; fix it by hand, or restore ` +
+    `${path.basename(filePath)}.bak, which holds the version before the last ` +
+    `dashboard change.`
+  );
 }

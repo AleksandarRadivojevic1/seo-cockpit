@@ -9,7 +9,8 @@ import {
 import { listSiteConfigs } from "../../lib/db";
 import { writeRunTrigger } from "../../lib/runTrigger";
 import {
-  readUserSites,
+  loadUserSites,
+  userSitesFileError,
   validateNewSite,
   writeUserSitesAtomic,
 } from "../../lib/userSites";
@@ -39,7 +40,13 @@ export async function addSite(
   formData: FormData,
 ): Promise<AddSiteState> {
   const filePath = userSitesPath();
-  const existing = readUserSites(filePath);
+  // A malformed file is refused, not treated as empty: writing
+  // [...existing, site] over it would drop every site it held.
+  const file = loadUserSites(filePath);
+  if (file.state === "malformed") {
+    return { errors: { form: userSitesFileError(filePath, file.error) }, ok: false };
+  }
+  const existing = file.state === "ok" ? file.sites : [];
 
   // Uniqueness is checked against both already-collected sites (the DB `sites`
   // table, which includes the sites.yaml seeds) and pending user sites.
@@ -116,7 +123,12 @@ export async function addSite(
 export async function removeSite(formData: FormData): Promise<void> {
   const filePath = userSitesPath();
   const slug = String(formData.get("slug") ?? "");
-  const remaining = readUserSites(filePath).filter((s) => s.slug !== slug);
+  const file = loadUserSites(filePath);
+  if (file.state === "malformed") {
+    throw new Error(userSitesFileError(filePath, file.error));
+  }
+  if (file.state === "missing") return;
+  const remaining = file.sites.filter((s) => s.slug !== slug);
   writeUserSitesAtomic(filePath, remaining);
   revalidatePath("/");
 }

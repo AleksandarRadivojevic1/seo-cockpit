@@ -130,6 +130,12 @@ export default function AddSiteForm() {
         </div>
       </details>
 
+      {state.errors.form ? (
+        <p role="alert" className="text-sm text-destructive">
+          {state.errors.form}
+        </p>
+      ) : null}
+
       {state.ok ? (
         <p className="text-sm text-muted-foreground">
           Added. It will start collecting on the next nightly run (03:00 UTC) and
