@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 
-import { SR } from "../../lib/report/sr";
-
 /**
  * Downloads the report as a PDF file.
  *
@@ -16,7 +14,14 @@ import { SR } from "../../lib/report/sr";
  *
  * Hidden in print: a download button is a dead control on paper.
  */
-export default function PrintButton({ href }: { href: string }) {
+export default function PrintButton({
+  href,
+  labels,
+}: {
+  href: string;
+  /** In the report's language, from the page. */
+  labels: { print: string; busy: string; error: string };
+}) {
   const [state, setState] = useState<"idle" | "busy" | "error">("idle");
 
   async function download(event: React.MouseEvent<HTMLAnchorElement>) {
@@ -55,14 +60,14 @@ export default function PrintButton({ href }: { href: string }) {
 
   return (
     <div className="flex items-center gap-3">
-      {state === "error" && <span className="text-xs text-red-700">{SR.printError}</span>}
+      {state === "error" && <span className="text-xs text-red-700">{labels.error}</span>}
       <a
         href={href}
         onClick={download}
         aria-busy={state === "busy"}
         className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-700 transition-colors hover:bg-neutral-100 aria-busy:cursor-progress aria-busy:opacity-60"
       >
-        {state === "busy" ? SR.printBusy : SR.print}
+        {state === "busy" ? labels.busy : labels.print}
       </a>
     </div>
   );
