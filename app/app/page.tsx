@@ -142,6 +142,12 @@ export default async function Home() {
           >
             Add site
           </Link>
+          <Link
+            href="/sites/links"
+            className="text-sm text-primary underline-offset-4 hover:underline"
+          >
+            Share links
+          </Link>
         </div>
       </header>
 

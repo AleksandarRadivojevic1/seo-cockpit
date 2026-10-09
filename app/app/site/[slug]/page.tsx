@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import ShareLinkForm from "../../../components/ShareLinkForm";
 import SiteDashboard from "../../../components/SiteDashboard";
 import { siteConfigBySlug } from "../../../lib/db";
 
@@ -29,6 +30,7 @@ export default async function SitePage({
   return (
     <SiteDashboard
       config={config}
+      afterHeader={<ShareLinkForm slug={slug} />}
       top={
         // An inline chevron, not a glyph or emoji: this is a navigation
         // affordance rather than decoration, and the label carries the

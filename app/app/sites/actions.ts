@@ -6,7 +6,8 @@ import {
   checkProperty,
   readAccessibleProperties,
 } from "../../lib/accessibleProperties";
-import { listRetiredSiteConfigs, listSiteConfigs } from "../../lib/db";
+import { listRetiredSiteConfigs, listSiteConfigs, siteConfigBySlug } from "../../lib/db";
+import { createShareLink, revokeShareLink } from "../../lib/shareLinks";
 import { writeRunTrigger } from "../../lib/runTrigger";
 import { assertAdminRequest } from "../../lib/adminGuard";
 import {
@@ -199,4 +200,48 @@ export async function refreshProperties(
   } catch (e) {
     return { ok: false, requestedAt: null, error: String(e) };
   }
+}
+
+export interface ShareLinkState {
+  url: string | null;
+  error: string | null;
+}
+
+/**
+ * Creates a client share link for a site and returns its URL. This is the
+ * only time the raw token exists outside the client's hands: the store keeps
+ * its hash, so a lost link is revoked and replaced, never shown again.
+ */
+export async function createShareLinkAction(
+  _prev: ShareLinkState,
+  formData: FormData,
+): Promise<ShareLinkState> {
+  await assertAdminRequest();
+  const filePath = process.env.SEO_SHARE_LINKS_PATH;
+  const base = process.env.SEO_PUBLIC_BASE_URL;
+  if (!filePath) return { url: null, error: "SEO_SHARE_LINKS_PATH is not set." };
+  if (!base) return { url: null, error: "SEO_PUBLIC_BASE_URL is not set." };
+
+  const config = siteConfigBySlug(String(formData.get("slug") ?? ""));
+  if (!config) return { url: null, error: "Unknown site." };
+  const label = String(formData.get("label") ?? "").trim();
+  if (!label) return { url: null, error: "Give the link a label, e.g. the client's name." };
+  if (label.length > 80) return { url: null, error: "Keep the label under 80 characters." };
+
+  try {
+    const { token } = createShareLink(filePath, { property: config.property, label });
+    revalidatePath("/sites/links");
+    return { url: `${base.replace(/\/+$/, "")}/share/${token}`, error: null };
+  } catch (e) {
+    return { url: null, error: (e as Error).message };
+  }
+}
+
+/** Revokes a share link; it stops working on the client's next request. */
+export async function revokeShareLinkAction(formData: FormData): Promise<void> {
+  await assertAdminRequest();
+  const filePath = process.env.SEO_SHARE_LINKS_PATH;
+  if (!filePath) throw new Error("SEO_SHARE_LINKS_PATH is not set.");
+  revokeShareLink(filePath, String(formData.get("id") ?? ""));
+  revalidatePath("/sites/links");
 }
