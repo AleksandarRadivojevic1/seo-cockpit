@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  collector:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: collector
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"   # same as the collector image
+          cache: pip
+          cache-dependency-path: |
+            collector/requirements.lock
+            collector/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: pytest
+
+  dashboard:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"   # same as the dashboard image
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npx vitest run
+      # Route types (RouteContext, ...) are generated, not committed.
+      - run: npx next typegen
+      - run: npx tsc --noEmit
+      # `next lint` is gone in Next 16; the lint script runs ESLint directly.
+      - run: npm run lint
