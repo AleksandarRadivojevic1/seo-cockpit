@@ -156,4 +156,16 @@ describe("proxy", () => {
       "http://127.0.0.1:3000/site/skedio/report",
     );
   });
+
+  it("passes the English PDF render URL", () => {
+    process.env.SEO_DASHBOARD_PASSWORD = "pw";
+    process.env.PORT = "3000";
+    const url = internalReportUrl(
+      "skedio",
+      "http://192.168.1.156:8091/site/skedio/report/pdf",
+      "en",
+    );
+    expect(url).toContain("?lang=en&render=");
+    expect(passesThrough(proxy(new NextRequest(url)))).toBe(true);
+  });
 });

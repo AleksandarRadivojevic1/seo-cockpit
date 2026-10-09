@@ -1,14 +1,13 @@
 import { formatISODateUTC } from "../../../../../lib/analysis/windows";
-import { siteConfigBySlug } from "../../../../../lib/db";
+import { siteConfigBySlug, siteLanguage } from "../../../../../lib/db";
 import { buildReportData } from "../../../../../lib/report/data";
-import { formatPeriodSr } from "../../../../../lib/report/format";
+import { resolveReportLanguage } from "../../../../../lib/report/language";
 import {
   contentDispositionAttachment,
   internalReportUrl,
   renderPdf,
-  reportPdfFilename,
+  reportPdfFilenameFor,
 } from "../../../../../lib/report/pdf";
-import { SR } from "../../../../../lib/report/sr";
 
 /**
  * Downloads `/site/[slug]/report` as a PDF file.
@@ -33,19 +32,19 @@ export async function GET(request: Request, ctx: RouteContext<"/site/[slug]/repo
     return new Response("Not found", { status: 404 });
   }
 
+  const lang = resolveReportLanguage(
+    new URL(request.url).searchParams.get("lang"),
+    siteLanguage(config.property)
+  );
   const data = buildReportData(config, formatISODateUTC(new Date()));
-  const period =
-    data.measuredStart && data.measuredEnd
-      ? formatPeriodSr(data.measuredStart, data.measuredEnd)
-      : SR.docTitle;
 
   let pdf: Buffer;
   try {
-    pdf = await renderPdf(internalReportUrl(slug, request.url));
+    pdf = await renderPdf(internalReportUrl(slug, request.url, lang));
   } catch (err) {
-    // Surfaced as text so the button can show a Serbian failure message
-    // instead of downloading a zero-byte file the client would open and
-    // find empty.
+    // Surfaced as text so the button can show its own localized failure
+    // message instead of downloading a zero-byte file the client would open
+    // and find empty.
     console.error("[report-pdf] render failed", err);
     return new Response("PDF rendering failed", { status: 500 });
   }
@@ -55,7 +54,7 @@ export async function GET(request: Request, ctx: RouteContext<"/site/[slug]/repo
       "Content-Type": "application/pdf",
       "Content-Length": String(pdf.byteLength),
       "Content-Disposition": contentDispositionAttachment(
-        reportPdfFilename(`${config.displayName} - ${SR.docTitle}`, period)
+        reportPdfFilenameFor(config.displayName, lang, data.measuredStart, data.measuredEnd)
       ),
       // The window moves daily and the render is expensive; a cached copy
       // would hand a client last week's numbers under this week's filename.

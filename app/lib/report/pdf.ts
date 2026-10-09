@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { RENDER_TOKEN_PARAM, basicAuthConfig, reportRenderToken } from "../basicAuth";
+import { reportFormat } from "./format";
+import { reportStrings, type ReportLanguage } from "./language";
 
 /**
  * Server-side PDF production for the client report.
@@ -69,12 +71,19 @@ export async function resolveChromium(): Promise<string> {
  * With Basic auth on, chromium cannot send credentials, so the URL carries
  * the report render token instead (see lib/basicAuth.ts), which proxy.ts
  * accepts for this page only. Without it the PDF would be the 401 text.
+ *
+ * `lang` is passed through so the PDF is printed in the language the reader
+ * chose; omitted, the page uses the site's default.
  */
-export function internalReportUrl(slug: string, requestUrl: string): string {
+export function internalReportUrl(slug: string, requestUrl: string, lang?: ReportLanguage): string {
   const port = process.env.PORT ?? new URL(requestUrl).port ?? "3000";
   const url = `http://127.0.0.1:${port || "3000"}/site/${encodeURIComponent(slug)}/report`;
+  const params = new URLSearchParams();
+  if (lang) params.set("lang", lang);
   const auth = basicAuthConfig();
-  return auth ? `${url}?${RENDER_TOKEN_PARAM}=${reportRenderToken(auth)}` : url;
+  if (auth) params.set(RENDER_TOKEN_PARAM, reportRenderToken(auth));
+  const query = params.toString();
+  return query ? `${url}?${query}` : url;
 }
 
 /**
@@ -199,6 +208,22 @@ export function reportPdfFilename(siteName: string, period: string): string {
     .trim()
     .replace(/\.+$/, "");
   return `${base}.pdf`;
+}
+
+/**
+ * The downloaded PDF's name in `lang`: `{site} - {report title} - {period}.pdf`.
+ * Without a measured span the title stands in for the period, as before.
+ */
+export function reportPdfFilenameFor(
+  siteName: string,
+  lang: ReportLanguage,
+  measuredStart: string | null,
+  measuredEnd: string | null
+): string {
+  const t = reportStrings(lang);
+  const period =
+    measuredStart && measuredEnd ? reportFormat(lang).period(measuredStart, measuredEnd) : t.docTitle;
+  return reportPdfFilename(`${siteName} - ${t.docTitle}`, period);
 }
 
 /**
