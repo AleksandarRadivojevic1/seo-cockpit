@@ -160,6 +160,7 @@ def collect_once(
                 "slug": site.slug,
                 "display_name": site.display_name,
                 "brand_token": site.brand_token,
+                "language": site.language,
                 "updated_at": captured_at,
             }
             for site in config.sites

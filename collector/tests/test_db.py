@@ -861,3 +861,52 @@ def test_upserting_a_retired_site_reactivates_it(conn):
     upsert_sites(conn, [_site_row(SITE, "example")])
 
     assert _active_by_property(conn) == {SITE: 1}
+
+
+# ---------------------------------------------------------------------------
+# sites.language: the client report's language, written by the collector
+# ---------------------------------------------------------------------------
+
+
+def test_init_db_adds_language_to_an_existing_sites_table(tmp_path):
+    db_path = tmp_path / "seo.db"
+    old = sqlite3.connect(db_path)
+    old.execute(
+        """
+        CREATE TABLE sites (
+            property TEXT PRIMARY KEY, slug TEXT NOT NULL UNIQUE,
+            display_name TEXT NOT NULL, brand_token TEXT NOT NULL,
+            updated_at TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1
+        )
+        """
+    )
+    old.execute(
+        "INSERT INTO sites (property, slug, display_name, brand_token, updated_at)"
+        " VALUES (?, 'example', 'Example', 'example', '2026-07-20')",
+        (SITE,),
+    )
+    old.commit()
+    old.close()
+
+    conn = init_db(db_path)
+
+    assert conn.execute("SELECT language FROM sites WHERE property=?", (SITE,)).fetchone() == ("sr",)
+
+
+def test_upsert_sites_writes_the_language_and_defaults_to_serbian(conn):
+    upsert_sites(
+        conn,
+        [{**_site_row(SITE, "example"), "language": "en"}, _site_row("https://example.org/", "org")],
+    )
+
+    assert dict(conn.execute("SELECT property, language FROM sites")) == {
+        SITE: "en",
+        "https://example.org/": "sr",
+    }
+
+
+def test_upsert_sites_updates_a_changed_language(conn):
+    upsert_sites(conn, [_site_row(SITE, "example")])
+    upsert_sites(conn, [{**_site_row(SITE, "example"), "language": "en"}])
+
+    assert conn.execute("SELECT language FROM sites").fetchone() == ("en",)

@@ -25,6 +25,11 @@ USER_SITES_ENV = "SEO_USER_SITES_PATH"
 _REQUIRED_TOP_LEVEL_KEYS = ("db_path", "service_account_path", "sites")
 _REQUIRED_SITE_KEYS = ("property", "slug", "display_name", "brand_token")
 
+# The client report's language, per site. Everything else in the app stays
+# English; only the report (and its PDF) is bilingual.
+REPORT_LANGUAGES = ("sr", "en")
+DEFAULT_REPORT_LANGUAGE = "sr"
+
 
 @dataclass(frozen=True)
 class Site:
@@ -63,6 +68,9 @@ class Site:
     # city. Left unset, checks are country-level (gl/hl only), which is the
     # right frame for a SaaS with no geography.
     serp_location: str | None = None
+    # Language of the client report and its PDF: "sr" or "en". The dashboard
+    # and the proposal stay English whatever this says.
+    language: str = DEFAULT_REPORT_LANGUAGE
 
 
 @dataclass(frozen=True)
@@ -70,6 +78,25 @@ class Config:
     sites: list[Site]
     db_path: str
     service_account_path: str
+
+
+def _report_language(raw: Mapping, where: str) -> str:
+    """The site's report language: ``sr`` or ``en``, ``sr`` when absent.
+
+    Case and surrounding whitespace are forgiven, since both config files are
+    edited by hand. Anything else is logged and treated as ``sr`` rather than
+    raised: a typo in one site's language must not stop a collection run.
+    """
+    value = raw.get("language")
+    if value is None:
+        return DEFAULT_REPORT_LANGUAGE
+    normalized = str(value).strip().lower()
+    if normalized in REPORT_LANGUAGES:
+        return normalized
+    logger.warning(
+        "%s: unknown report language %r, using %r", where, value, DEFAULT_REPORT_LANGUAGE
+    )
+    return DEFAULT_REPORT_LANGUAGE
 
 
 def _site_from_dict(raw: Mapping, source: str) -> Site | None:
@@ -93,6 +120,7 @@ def _site_from_dict(raw: Mapping, source: str) -> Site | None:
         discover_seeds=tuple(raw.get("discover_seeds") or ()),
         trend_seeds=tuple(raw.get("trend_seeds") or ()),
         serp_location=raw.get("serp_location") or None,
+        language=_report_language(raw, source),
     )
 
 
@@ -181,6 +209,7 @@ def load_config(
                 discover_seeds=tuple(raw_site.get("discover_seeds") or ()),
                 trend_seeds=tuple(raw_site.get("trend_seeds") or ()),
                 serp_location=raw_site.get("serp_location") or None,
+                language=_report_language(raw_site, f"sites[{index}] of {config_path}"),
             )
         )
 

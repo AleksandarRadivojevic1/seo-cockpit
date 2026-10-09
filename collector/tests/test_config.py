@@ -155,3 +155,91 @@ def test_load_config_reads_user_sites_from_env(tmp_path, monkeypatch):
     )
     config = load_config(FIXTURES_DIR / "fixture_sites.yaml")
     assert "agency" in [s.slug for s in config.sites]
+
+
+# ---------------------------------------------------------------------------
+# Report language: per site, Serbian unless set to English
+# ---------------------------------------------------------------------------
+
+
+def test_report_language_defaults_to_serbian_and_reads_english(tmp_path):
+    path = tmp_path / "sites.yaml"
+    path.write_text(
+        """
+db_path: data/seo.db
+service_account_path: secrets/sa.json
+sites:
+  - property: "https://optikacajs.rs/"
+    slug: optika-cajs
+    display_name: Optika Cajs
+    brand_token: cajs
+  - property: "https://example-us.com/"
+    slug: example-us
+    display_name: Example US
+    brand_token: example
+    language: en
+  - property: "https://shouty.com/"
+    slug: shouty
+    display_name: Shouty
+    brand_token: shouty
+    language: " EN "
+""",
+        encoding="utf-8",
+    )
+    by_slug = {s.slug: s for s in load_config(path).sites}
+
+    assert by_slug["optika-cajs"].language == "sr"
+    assert by_slug["example-us"].language == "en"
+    # Hand-edited file: case and whitespace are forgiven.
+    assert by_slug["shouty"].language == "en"
+
+
+def test_unknown_report_language_is_logged_and_treated_as_serbian(tmp_path, caplog):
+    import logging
+
+    path = tmp_path / "sites.yaml"
+    path.write_text(
+        """
+db_path: data/seo.db
+service_account_path: secrets/sa.json
+sites:
+  - property: "https://example.de/"
+    slug: example-de
+    display_name: Example DE
+    brand_token: example
+    language: de
+""",
+        encoding="utf-8",
+    )
+    with caplog.at_level(logging.WARNING):
+        site = load_config(path).sites[0]
+
+    # A typo must never stop a collection run.
+    assert site.language == "sr"
+    assert "unknown report language" in caplog.text
+
+
+def test_user_site_report_language_is_read_and_defaults_to_serbian(tmp_path):
+    import json
+
+    user_sites = tmp_path / "user-sites.json"
+    user_sites.write_text(
+        json.dumps(
+            [
+                {"property": "sc-domain:us.example", "slug": "us", "display_name": "US",
+                 "brand_token": "us", "language": "en"},
+                # Written before this change: no language key at all.
+                {"property": "sc-domain:rs.example", "slug": "rs", "display_name": "RS",
+                 "brand_token": "rs"},
+                {"property": "sc-domain:junk.example", "slug": "junk", "display_name": "Junk",
+                 "brand_token": "junk", "language": 42},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config = load_config(FIXTURES_DIR / "fixture_sites.yaml", user_sites_path=user_sites)
+    by_slug = {s.slug: s for s in config.sites}
+
+    assert by_slug["us"].language == "en"
+    assert by_slug["rs"].language == "sr"
+    assert by_slug["junk"].language == "sr"

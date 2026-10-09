@@ -698,3 +698,26 @@ def test_a_site_removed_from_config_is_retired_and_restored_on_re_add(tmp_path, 
 
     run([site_a, site_b])
     assert active() == {SITE_A: 1, SITE_B: 1}
+
+
+def test_collect_once_writes_each_sites_report_language(tmp_path, conn):
+    sites = [
+        Site(property=SITE_A, slug="alexrad", display_name="Alexrad", brand_token="alexrad"),
+        Site(property=SITE_B, slug="skedio", display_name="Skedio", brand_token="skedio",
+             language="en"),
+    ]
+
+    collect_once(
+        _config(tmp_path, sites=sites),
+        mode="incremental",
+        conn=conn,
+        service=object(),
+        fetch_analytics=lambda service, property, start, end: _sa(property, "2026-07-15"),
+        fetch_cwv_fn=lambda url: None,
+        today=datetime.date(2026, 7, 24),
+    )
+
+    assert dict(conn.execute("SELECT property, language FROM sites")) == {
+        SITE_A: "sr",
+        SITE_B: "en",
+    }

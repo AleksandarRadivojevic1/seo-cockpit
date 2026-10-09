@@ -101,7 +101,8 @@ CREATE TABLE IF NOT EXISTS sites (
     display_name TEXT NOT NULL,
     brand_token  TEXT NOT NULL,
     updated_at   TEXT NOT NULL,
-    active       INTEGER NOT NULL DEFAULT 1
+    active       INTEGER NOT NULL DEFAULT 1,
+    language     TEXT NOT NULL DEFAULT 'sr'
 );
 
 CREATE TABLE IF NOT EXISTS collection_runs (
@@ -316,19 +317,22 @@ def _migrate_cwv_snapshots(conn: sqlite3.Connection) -> None:
 
 
 def _migrate_sites(conn: sqlite3.Connection) -> None:
-    """Add ``sites.active`` to a database created before the column existed.
+    """Add columns to a ``sites`` table created before they existed.
 
     ``_SCHEMA``'s ``CREATE TABLE IF NOT EXISTS`` cannot add a column to an
-    existing table. Every existing row starts active (the column default);
-    the next ``collect_once`` retires any that are no longer configured.
-    No-op on a fresh database or one already migrated.
+    existing table. ``active``: every existing row starts active (the column
+    default), and the next ``collect_once`` retires any no longer configured.
+    ``language``: every existing row starts ``sr`` until the next run writes
+    the configured value. No-op on a fresh database or one already migrated.
     """
     if not _table_exists(conn, "sites"):
         return
     columns = {row[1] for row in conn.execute("PRAGMA table_info(sites)").fetchall()}
     if "active" not in columns:
         conn.execute("ALTER TABLE sites ADD COLUMN active INTEGER NOT NULL DEFAULT 1")
-        conn.commit()
+    if "language" not in columns:
+        conn.execute("ALTER TABLE sites ADD COLUMN language TEXT NOT NULL DEFAULT 'sr'")
+    conn.commit()
 
 
 def init_db(path: str | Path) -> sqlite3.Connection:
@@ -625,24 +629,26 @@ def upsert_sites(conn: sqlite3.Connection, rows: Iterable[Mapping]) -> None:
     """Upsert rows into ``sites``, keyed on ``property``.
 
     Each row is a mapping with keys: property, slug, display_name,
-    brand_token, updated_at. Re-upserting the same ``property`` updates the
-    existing row in place rather than creating a duplicate, so editing
-    ``sites.yaml`` (display name, brand token, or slug) propagates on the
-    next collection run. An upserted site is active, so re-adding a retired
-    property brings it (and its history) back.
+    brand_token, updated_at, and optionally language (``sr`` when absent).
+    Re-upserting the same ``property`` updates the existing row in place
+    rather than creating a duplicate, so editing ``sites.yaml`` (display
+    name, brand token, slug or language) propagates on the next collection
+    run. An upserted site is active, so re-adding a retired property brings
+    it (and its history) back.
     """
     conn.executemany(
         """
-        INSERT INTO sites (property, slug, display_name, brand_token, updated_at, active)
-        VALUES (:property, :slug, :display_name, :brand_token, :updated_at, 1)
+        INSERT INTO sites (property, slug, display_name, brand_token, updated_at, active, language)
+        VALUES (:property, :slug, :display_name, :brand_token, :updated_at, 1, :language)
         ON CONFLICT (property) DO UPDATE SET
             slug = excluded.slug,
             display_name = excluded.display_name,
             brand_token = excluded.brand_token,
             updated_at = excluded.updated_at,
-            active = 1
+            active = 1,
+            language = excluded.language
         """,
-        list(rows),
+        [{"language": "sr", **row} for row in rows],
     )
     conn.commit()
 
