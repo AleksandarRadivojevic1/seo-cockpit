@@ -6,6 +6,11 @@ import path from "node:path";
 
 // The actions call revalidatePath, which needs a running Next server.
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+// Admin actions check the request's headers (lib/adminGuard.ts). These tests
+// run as today's local-dev case: no SEO_INTERNAL_HOSTS and no password, so an
+// empty header set is an admin request.
+const requestHeaders = vi.hoisted(() => ({ current: new Headers() }));
+vi.mock("next/headers", () => ({ headers: async () => requestHeaders.current }));
 
 import { addSite, removeSite, type AddSiteState } from "../app/sites/actions";
 

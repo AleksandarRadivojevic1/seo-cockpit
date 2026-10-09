@@ -8,6 +8,7 @@ import {
 } from "../../lib/accessibleProperties";
 import { listRetiredSiteConfigs, listSiteConfigs } from "../../lib/db";
 import { writeRunTrigger } from "../../lib/runTrigger";
+import { assertAdminRequest } from "../../lib/adminGuard";
 import {
   loadUserSites,
   userSitesFileError,
@@ -39,6 +40,7 @@ export async function addSite(
   _prev: AddSiteState,
   formData: FormData,
 ): Promise<AddSiteState> {
+  await assertAdminRequest();
   const filePath = userSitesPath();
   // A malformed file is refused, not treated as empty: writing
   // [...existing, site] over it would drop every site it held.
@@ -130,6 +132,7 @@ export async function addSite(
 }
 
 export async function removeSite(formData: FormData): Promise<void> {
+  await assertAdminRequest();
   const filePath = userSitesPath();
   const slug = String(formData.get("slug") ?? "");
   const file = loadUserSites(filePath);
@@ -157,6 +160,7 @@ export async function requestCollectionRun(
   _prev: RunState,
   _formData: FormData,
 ): Promise<RunState> {
+  await assertAdminRequest();
   const p = process.env.SEO_RUN_TRIGGER_PATH;
   if (!p) return { ok: false, requestedAt: null, error: "SEO_RUN_TRIGGER_PATH is not set" };
   try {
@@ -185,6 +189,7 @@ export async function refreshProperties(
   _prev: RefreshState,
   _formData: FormData,
 ): Promise<RefreshState> {
+  await assertAdminRequest();
   const p = process.env.SEO_REFRESH_TRIGGER_PATH;
   if (!p)
     return { ok: false, requestedAt: null, error: "SEO_REFRESH_TRIGGER_PATH is not set" };
