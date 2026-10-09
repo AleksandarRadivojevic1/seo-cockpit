@@ -94,8 +94,9 @@ alerts plus a weekly digest. Demand seeds are chosen by hand per site rather
 than fully automated — Trends has a volume floor that drops very specific
 long-tail terms, and SerpApi is metered.
 
-**Phase 3 (remaining, optional).** Authentication and per-client login views.
-Until then the dashboard has no auth and is reached over WireGuard only.
+**Phase 3 (remaining, optional).** Per-client login views. Until then the
+dashboard sits behind one shared HTTP Basic auth login (`SEO_DASHBOARD_PASSWORD`)
+and is reached over LAN or WireGuard.
 
 ## License
 

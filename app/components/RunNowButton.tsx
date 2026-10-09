@@ -19,7 +19,11 @@ export default function RunNowButton() {
         {pending ? "Requesting…" : "Run collection now"}
       </button>
       {state.ok ? (
-        <span className="text-xs text-muted-foreground">Requested — starting within ~15s.</span>
+        // The collector skips a trigger within RUN_COOLDOWN_MINUTES
+        // (collector/seocockpit/schedule.py) of the last finished run.
+        <span className="text-xs text-muted-foreground">
+          Requested — starts within ~15s, unless a run finished in the last 10 minutes.
+        </span>
       ) : null}
       {state.error ? (
         <span className="text-xs text-destructive">{state.error}</span>

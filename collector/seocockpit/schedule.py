@@ -19,6 +19,7 @@ import datetime
 import json
 import logging
 import os
+import sqlite3
 import sys
 import threading
 from typing import Callable
@@ -62,6 +63,12 @@ RUN_TRIGGER_ENV = "SEO_RUN_TRIGGER_PATH"
 DEFAULT_RUN_TRIGGER_PATH = "/config/run-now.json"
 RUN_TRIGGER_POLL_SECONDS = 15
 
+# A manual run costs several minutes of PSI calls, so a run-now trigger that
+# arrives within this many minutes of the last finished run (nightly or
+# manual) is consumed without running: a double click, or a click during a
+# run, doesn't buy a second identical pass.
+RUN_COOLDOWN_MINUTES = 10
+
 # On-demand accessible-property refresh: the dashboard's add-site "Refresh"
 # button writes this file, and the watcher publishes a fresh sites().list()
 # without running a full collection -- so the form gets an up-to-date property
@@ -93,6 +100,34 @@ def read_run_trigger(path: str) -> str | None:
     return None
 
 
+def _utcnow() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def _last_run_finished_at(db_path: str) -> datetime.datetime | None:
+    """When the most recent collection run finished, from ``collection_runs``.
+
+    The database rather than in-process state, so it counts every run (the
+    nightly job, the watcher, a one-shot ``run``) and survives a restart.
+    Opened read-only and never raises: a missing or unreadable database
+    means "no finished run known", which never blocks a run.
+    """
+    try:
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        try:
+            row = conn.execute("SELECT MAX(finished_at) FROM collection_runs").fetchone()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return None
+    if not row or not row[0]:
+        return None
+    try:
+        return datetime.datetime.fromisoformat(row[0])
+    except ValueError:
+        return None
+
+
 def _run_collection(config: Config, collect_fn: Callable) -> None:
     """One collection pass: collect, log, notify, back up. Lock-guarded by
     callers so it never overlaps another run."""
@@ -116,6 +151,7 @@ def make_run_trigger_watcher(
     trigger_path: str,
     *,
     config_provider: Callable[[], Config] | None = None,
+    now: Callable[[], datetime.datetime] = _utcnow,
 ) -> Callable[[], None]:
     """Build the watcher called on an interval by ``serve``.
 
@@ -123,7 +159,9 @@ def make_run_trigger_watcher(
     file at build time, so a stale trigger never fires on boot). When it sees a
     newer timestamp it runs one collection. If a run is already in progress the
     tick is skipped and the timestamp left unprocessed, so the next tick picks
-    it up once the in-flight run finishes.
+    it up once the in-flight run finishes -- where the cooldown then applies.
+    A trigger within ``RUN_COOLDOWN_MINUTES`` of the last finished run is
+    consumed without running (logged), not deferred.
 
     ``config_provider`` is resolved once per run, so dashboard site changes take
     effect on the next trigger without a collector restart. When omitted, the
@@ -142,8 +180,20 @@ def make_run_trigger_watcher(
         # tick -- the operator can just press the button again.
         state["last_seen"] = current
         try:
+            run_config = provider()
+            finished = _last_run_finished_at(run_config.db_path)
+            cooldown = datetime.timedelta(minutes=RUN_COOLDOWN_MINUTES)
+            if finished is not None and now() - finished < cooldown:
+                logger.info(
+                    "manual collection trigger %s ignored: the last run finished "
+                    "at %s, less than %d minutes ago",
+                    current,
+                    finished.isoformat(),
+                    RUN_COOLDOWN_MINUTES,
+                )
+                return
             logger.info("manual collection trigger detected: %s", current)
-            _run_collection(provider(), collect_fn)
+            _run_collection(run_config, collect_fn)
         except Exception:  # noqa: BLE001 - a bad run must not kill the watcher
             logger.exception("manual-triggered collection failed")
         finally:

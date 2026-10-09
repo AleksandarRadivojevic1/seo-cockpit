@@ -459,3 +459,98 @@ def test_serve_wires_a_disk_reloading_config_provider(monkeypatch):
     assert exit_code == 0
     assert captured["provider"] is not None
     assert captured["provider"]() is sentinel
+
+
+# ---------------------------------------------------------------------------
+# Run-now cooldown: a manual run costs several minutes of PSI calls, so a
+# trigger that lands within RUN_COOLDOWN_MINUTES of the last finished run is
+# consumed without running.
+# ---------------------------------------------------------------------------
+
+
+def _db_with_last_run(tmp_path, finished_at: str):
+    from seocockpit.db import finish_run, init_db, start_run
+
+    db_path = tmp_path / "seo.db"
+    conn = init_db(db_path)
+    run_id = start_run(conn, "sc-domain:example.com")
+    finish_run(conn, run_id, status="success", error=None, rows=1)
+    conn.execute("UPDATE collection_runs SET finished_at = ? WHERE id = ?", (finished_at, run_id))
+    conn.commit()
+    conn.close()
+
+    class _Config:
+        pass
+
+    config = _Config()
+    config.db_path = str(db_path)
+    return config
+
+
+def _at(iso: str):
+    import datetime
+
+    return lambda: datetime.datetime.fromisoformat(iso)
+
+
+def test_watcher_ignores_a_trigger_soon_after_a_finished_run(tmp_path):
+    from seocockpit.schedule import RUN_COOLDOWN_MINUTES
+
+    assert 5 <= RUN_COOLDOWN_MINUTES <= 15
+    config = _db_with_last_run(tmp_path, "2026-09-14T12:00:00+00:00")
+    p = tmp_path / "run-now.json"
+    calls = []
+    watch = make_run_trigger_watcher(
+        config,
+        lambda cfg, mode: calls.append(mode) or [],
+        str(p),
+        now=_at("2026-09-14T12:04:00+00:00"),
+    )
+
+    p.write_text(json.dumps({"requested_at": "t1"}), encoding="utf-8")
+    watch()
+    assert calls == []
+
+    # Consumed, not deferred: it does not fire later on its own.
+    watch()
+    assert calls == []
+
+
+def test_watcher_runs_a_trigger_once_the_cooldown_has_passed(tmp_path):
+    from seocockpit.schedule import RUN_COOLDOWN_MINUTES
+
+    config = _db_with_last_run(tmp_path, "2026-09-14T12:00:00+00:00")
+    p = tmp_path / "run-now.json"
+    calls = []
+    watch = make_run_trigger_watcher(
+        config,
+        lambda cfg, mode: calls.append(mode) or [],
+        str(p),
+        now=_at(f"2026-09-14T12:{RUN_COOLDOWN_MINUTES:02d}:01+00:00"),
+    )
+
+    p.write_text(json.dumps({"requested_at": "t1"}), encoding="utf-8")
+    watch()
+    assert calls == ["incremental"]
+
+
+def test_watcher_runs_when_no_run_has_finished_yet(tmp_path):
+    from seocockpit.db import init_db
+
+    db_path = tmp_path / "seo.db"
+    init_db(db_path).close()
+
+    class _Config:
+        pass
+
+    config = _Config()
+    config.db_path = str(db_path)
+    p = tmp_path / "run-now.json"
+    calls = []
+    watch = make_run_trigger_watcher(
+        config, lambda cfg, mode: calls.append(mode) or [], str(p)
+    )
+
+    p.write_text(json.dumps({"requested_at": "t1"}), encoding="utf-8")
+    watch()
+    assert calls == ["incremental"]

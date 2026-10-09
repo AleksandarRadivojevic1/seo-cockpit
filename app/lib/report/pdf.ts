@@ -4,6 +4,8 @@ import { constants } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { RENDER_TOKEN_PARAM, basicAuthConfig, reportRenderToken } from "../basicAuth";
+
 /**
  * Server-side PDF production for the client report.
  *
@@ -63,10 +65,16 @@ export async function resolveChromium(): Promise<string> {
  * the render out to the LAN and back would make an internal detail depend on
  * the network. `PORT` is what the standalone server binds, so it is what the
  * loopback address has to use.
+ *
+ * With Basic auth on, chromium cannot send credentials, so the URL carries
+ * the report render token instead (see lib/basicAuth.ts), which proxy.ts
+ * accepts for this page only. Without it the PDF would be the 401 text.
  */
 export function internalReportUrl(slug: string, requestUrl: string): string {
   const port = process.env.PORT ?? new URL(requestUrl).port ?? "3000";
-  return `http://127.0.0.1:${port || "3000"}/site/${encodeURIComponent(slug)}/report`;
+  const url = `http://127.0.0.1:${port || "3000"}/site/${encodeURIComponent(slug)}/report`;
+  const auth = basicAuthConfig();
+  return auth ? `${url}?${RENDER_TOKEN_PARAM}=${reportRenderToken(auth)}` : url;
 }
 
 /**

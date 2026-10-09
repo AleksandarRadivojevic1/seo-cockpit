@@ -140,6 +140,14 @@ services:
       - seo-cockpit-collector
     environment:
       SEO_DB_PATH: /data/seo.db
+      # HTTP Basic auth over the whole dashboard. It can add and remove sites
+      # and trigger runs, and 8091 below is published on every interface, so
+      # without this anyone on the LAN can use it. REQUIRED here (the app
+      # itself only skips auth when it is unset, for local dev). After a
+      # deploy, `docker logs seo-cockpit-dashboard` must show
+      # `[auth] Basic auth enabled`.
+      SEO_DASHBOARD_PASSWORD: ${SEO_DASHBOARD_PASSWORD:?set SEO_DASHBOARD_PASSWORD in ~/server/.env}
+      SEO_DASHBOARD_USER: ${SEO_DASHBOARD_USER:-acko}
       # Where the add-site form writes dashboard-added sites. Same path the
       # collector reads (SEO_USER_SITES_PATH above), inside the :rw config mount
       # below. This is the ONE thing the dashboard writes; the DB stays :ro.
