@@ -17,9 +17,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Requirements first so a source change does not re-resolve dependencies.
+# Installs the lock, not requirements.txt, so a rebuild gets the same
+# versions every time (pytest lives in requirements-dev.txt and stays out).
 # --no-cache-dir keeps the wheel cache out of the layer.
-COPY collector/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY collector/requirements.lock ./requirements.lock
+RUN pip install --no-cache-dir -r requirements.lock
 
 COPY collector/seocockpit ./seocockpit
 

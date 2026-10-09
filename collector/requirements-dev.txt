@@ -1,0 +1,4 @@
+# Tests run against the exact versions the image ships, plus pytest, which
+# stays out of the runtime image.
+-r requirements.lock
+pytest==9.1.1

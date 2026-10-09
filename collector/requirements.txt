@@ -1,5 +1,13 @@
-PyYAML
-pytest
-google-api-python-client
-google-auth
-APScheduler
+# Runtime dependencies of the collector: what the code imports, with the
+# major-version ranges it is written against. This file is the input; the
+# image installs the exact versions resolved into requirements.lock.
+#
+# After editing, regenerate the lock (from collector/):
+#   uv pip compile requirements.txt -o requirements.lock --python-version 3.14
+#
+# APScheduler stays below 4: 4.x folds BlockingScheduler into a new
+# Scheduler class, and schedule.py imports BlockingScheduler.
+APScheduler>=3.10,<4
+google-api-python-client>=2,<3
+google-auth>=2,<3
+PyYAML>=6,<7
