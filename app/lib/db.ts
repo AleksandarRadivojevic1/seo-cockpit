@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import path from "node:path";
 
 import type { QueryPageRow } from "./analysis/cannibalization";
+import type { ReportLanguage } from "./report/language";
 
 export interface TotalsRow {
   site: string;
@@ -330,23 +331,22 @@ export function serpChecks(site: string, db: Database.Database = getDb()): SerpC
 }
 
 /**
- * Whether this database has `sites.active`. The collector retires a removed
- * site (active = 0) instead of deleting it, so its history survives a
- * re-add. The column arrives with the collector's migration, and the
- * dashboard can be deployed first, so a database without it is read as
- * "every site active", which is what it meant before. Checked per call, not
- * cached: the collector can migrate the file while this process runs.
+ * Whether this database's `sites` table has `column`. Columns the collector
+ * adds by migration (`active`, `language`) may not exist yet: the dashboard
+ * can be deployed first, so a missing column is read as its default rather
+ * than an error. Checked per call, not cached: the collector can migrate the
+ * file while this process runs.
  */
-function hasActiveColumn(db: Database.Database): boolean {
+function hasSitesColumn(db: Database.Database, column: string): boolean {
   return db
     .prepare<[], { name: string }>("PRAGMA table_info(sites)")
     .all()
-    .some((column) => column.name === "active");
+    .some((c) => c.name === column);
 }
 
 /** Every active site, by display name. Retired (removed) sites are left out. */
 export function listSiteConfigs(db: Database.Database = getDb()): SiteConfig[] {
-  const where = hasActiveColumn(db) ? "WHERE active = 1" : "";
+  const where = hasSitesColumn(db, "active") ? "WHERE active = 1" : "";
   return db
     .prepare<[], SiteConfig>(
       `SELECT property, slug, display_name AS displayName, brand_token AS brandToken
@@ -363,7 +363,7 @@ export function listSiteConfigs(db: Database.Database = getDb()): SiteConfig[] {
  * back to the property that held it.
  */
 export function listRetiredSiteConfigs(db: Database.Database = getDb()): SiteConfig[] {
-  if (!hasActiveColumn(db)) return [];
+  if (!hasSitesColumn(db, "active")) return [];
   return db
     .prepare<[], SiteConfig>(
       `SELECT property, slug, display_name AS displayName, brand_token AS brandToken
@@ -382,7 +382,7 @@ export function siteConfigBySlug(
   slug: string,
   db: Database.Database = getDb()
 ): SiteConfig | null {
-  const active = hasActiveColumn(db) ? "AND active = 1" : "";
+  const active = hasSitesColumn(db, "active") ? "AND active = 1" : "";
   const row = db
     .prepare<[string], SiteConfig>(
       `SELECT property, slug, display_name AS displayName, brand_token AS brandToken
@@ -391,6 +391,24 @@ export function siteConfigBySlug(
     )
     .get(slug);
   return row ?? null;
+}
+
+/**
+ * A site's client-report language, from `sites.language` (written by the
+ * collector). `sr` when the column doesn't exist yet, when the site isn't
+ * found, or for any value other than `en`, so a report can always render.
+ */
+export function siteLanguage(
+  property: string,
+  db: Database.Database = getDb()
+): ReportLanguage {
+  if (!hasSitesColumn(db, "language")) return "sr";
+  const row = db
+    .prepare<[string], { language: string | null }>(
+      "SELECT language FROM sites WHERE property = ?"
+    )
+    .get(property);
+  return row?.language === "en" ? "en" : "sr";
 }
 
 /**
