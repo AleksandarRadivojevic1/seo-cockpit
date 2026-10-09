@@ -1,3 +1,6 @@
+import { EN } from "./en";
+import { SR, type ReportStrings } from "./sr";
+
 /**
  * The client report's two languages.
  *
@@ -25,4 +28,9 @@ export function resolveReportLanguage(
   siteDefault: ReportLanguage,
 ): ReportLanguage {
   return isReportLanguage(param) ? param : siteDefault;
+}
+
+/** The report's strings in `lang`. */
+export function reportStrings(lang: ReportLanguage): ReportStrings {
+  return lang === "en" ? EN : SR;
 }

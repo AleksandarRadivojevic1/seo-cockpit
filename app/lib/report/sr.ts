@@ -3,8 +3,8 @@
  *
  * Kept as a plain typed object rather than an i18n framework: one localized
  * surface does not justify message extraction, a locale switch, or runtime
- * negotiation. A second language later means a second file satisfying the
- * same shape.
+ * negotiation. The English report is `en.ts`, which must satisfy the same
+ * shape (`ReportStrings`, below).
  *
  * SEO terms that are industry-standard in English stay English — SEO, CTR,
  * Google Trends. A client who googles "CTR" finds the real thing; one who
@@ -135,3 +135,21 @@ export const SR = {
   colAppearances: "Pretraga",
   colBest: "Najbolja pozicija",
 } as const;
+
+/** Widens SR's literal types so another language can satisfy the same shape. */
+type Widen<T> = T extends string
+  ? string
+  : T extends (...args: infer A) => string
+    ? (...args: A) => string
+    : T extends readonly [string, string, string]
+      ? [string, string, string]
+      : T extends object
+        ? { readonly [K in keyof T]: Widen<T[K]> }
+        : T;
+
+/**
+ * The shape every report language satisfies: SR's entries with their literal
+ * strings widened. A missing, extra or misshapen entry is a compile error,
+ * so an untranslated string can't reach a client's PDF as `undefined`.
+ */
+export type ReportStrings = { readonly [K in keyof typeof SR]: Widen<(typeof SR)[K]> };
