@@ -7,10 +7,13 @@
  * same shape.
  *
  * SEO terms that are industry-standard in English stay English — SEO, CTR,
- * Core Web Vitals, PageSpeed Insights, Chrome UX Report. A client who
- * googles "Core Web Vitals" finds the real thing; one who googles a Serbian
- * coinage invented here finds nothing, which makes the document read as
- * machine-translated and less credible, not more.
+ * Google Trends. A client who googles "CTR" finds the real thing; one who
+ * googles a Serbian coinage invented here finds nothing, which makes the
+ * document read as machine-translated and less credible, not more.
+ *
+ * Site speed (Core Web Vitals, PageSpeed Insights) is deliberately not in
+ * the report: it describes how the site performs, not how it does in search.
+ * It stays on the dashboard.
  *
  * Script is Serbian **Latin** throughout, matching both client sites.
  */
@@ -131,22 +134,4 @@ export const SR = {
   colDomain: "Sajt",
   colAppearances: "Pretraga",
   colBest: "Najbolja pozicija",
-
-  cwv: "Brzina sajta",
-  cwvEmpty: "Brzina sajta još nije merena.",
-  cwvNotMeasured: "nije mereno",
-  /**
-   * All four members of `MetricVerdict`, including "not-measured". A missing
-   * key would render `undefined` into a document the client keeps.
-   */
-  cwvVerdict: {
-    good: "dobro",
-    "needs-work": "može bolje",
-    poor: "loše",
-    "not-measured": "nije mereno",
-  } as const,
-  cwvLab:
-    "Mereno u laboratorijskim uslovima, jednim PageSpeed Insights testom — sajt nema dovoljno posetilaca za podatke iz Chrome UX Report-a, a INP nema laboratorijski ekvivalent.",
-  cwvField:
-    "Mereno na stvarnim posetama (75. percentil), na osnovu podataka iz Chrome UX Report-a.",
 } as const;

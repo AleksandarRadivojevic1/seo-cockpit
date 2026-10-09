@@ -1,6 +1,7 @@
 import { formatMetricValue, metricVerdictFor } from "./cwv-format";
 import type { MetricKey } from "./cwv-format";
 import type { SignalEntry } from "./analysis/signals";
+import type { CwvRow } from "./db";
 import type { ReportData } from "./report/data";
 
 /**
@@ -10,6 +11,10 @@ import type { ReportData } from "./report/data";
  * and the Serbian client report cannot drift apart in what they mean by
  * "impressions" or "opportunities". `opportunities` is ranked by opportunity
  * score, highest first.
+ *
+ * `cwv` is the exception: site speed was taken out of the client report (it
+ * describes performance, not search), so the proposal page loads the latest
+ * snapshot itself and passes it alongside.
  */
 export type ProposalInput = Pick<
   ReportData,
@@ -25,8 +30,7 @@ export type ProposalInput = Pick<
   | "rising"
   | "declining"
   | "topPages"
-  | "cwv"
->;
+> & { cwv: CwvRow | null };
 
 /** Rows included per section — a findings page, not a data dump. */
 const MAX_ROWS = 10;

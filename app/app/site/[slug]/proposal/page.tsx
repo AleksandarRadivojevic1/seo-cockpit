@@ -4,7 +4,7 @@ import { connection } from "next/server";
 
 import CopyMarkdownButton from "../../../../components/CopyMarkdownButton";
 import { formatISODateUTC } from "../../../../lib/analysis/windows";
-import { siteConfigBySlug } from "../../../../lib/db";
+import { latestCwv, siteConfigBySlug } from "../../../../lib/db";
 import { buildReportData } from "../../../../lib/report/data";
 import { toProposalMarkdown } from "../../../../lib/proposalMarkdown";
 
@@ -30,7 +30,10 @@ export default async function ProposalPage({
     notFound();
   }
 
-  const markdown = toProposalMarkdown(buildReportData(config, formatISODateUTC(new Date())));
+  const markdown = toProposalMarkdown({
+    ...buildReportData(config, formatISODateUTC(new Date())),
+    cwv: latestCwv(config.property),
+  });
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">

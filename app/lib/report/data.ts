@@ -10,13 +10,12 @@ import { addDaysUTC, recentVsPrior, windowBounds } from "../analysis/windows";
 import {
   demandKeywords,
   getDb,
-  latestCwv,
   pageRowsInRange,
   queryRowsInRange,
   serpChecks,
   totalsInRange,
 } from "../db";
-import type { CwvRow, SiteConfig } from "../db";
+import type { SiteConfig } from "../db";
 import { buildSiteSummary } from "../portfolio";
 import type { DataState } from "../portfolio";
 import type { BrandBreakdown, PageTotal } from "../analysis/breakdown";
@@ -62,7 +61,6 @@ export interface ReportData {
   demand: DemandBreakdown;
   competitors: DomainTally[];
   serpState: SerpState;
-  cwv: CwvRow | null;
   /**
    * The engagement-long before/after story, or `null` when there is too
    * little history for an honest comparison. Independent of the rolling
@@ -168,7 +166,6 @@ export function buildReportData(
     ),
     competitors: rankCompetitors(checks, ownDomainFor(config.property)),
     serpState: serpState(checks),
-    cwv: latestCwv(config.property, db),
     growth,
   };
 }

@@ -167,4 +167,9 @@ describe("buildReportData", () => {
     expect(data.measuredStart).toBeNull();
     expect(data.measuredEnd).toBeNull();
   });
+
+  it("carries no Core Web Vitals snapshot: site speed is not in the report", () => {
+    const data = buildReportData(CONFIG, "2026-07-26", db);
+    expect(data).not.toHaveProperty("cwv");
+  });
 });

@@ -6,11 +6,9 @@ import PrintButton from "../../../../components/report/PrintButton";
 import ReportChart from "../../../../components/report/ReportChart";
 import ReportTable from "../../../../components/report/ReportTable";
 import { formatISODateUTC } from "../../../../lib/analysis/windows";
-import { metricVerdict } from "../../../../lib/cwv-format";
 import { siteConfigBySlug } from "../../../../lib/db";
 import { buildReportData } from "../../../../lib/report/data";
 import {
-  formatCwvValueSr,
   formatDateSr,
   formatDecimalSr,
   formatIntSr,
@@ -431,46 +429,6 @@ export default async function ReportPage({
                   .slice(0, 10)
                   .map((c) => [c.domain, formatIntSr(c.appearances), formatIntSr(c.bestPosition)])}
               />
-            </>
-          )}
-        </section>
-
-        <section className="mb-8 break-inside-avoid">
-          <h2 className="rb-sec">
-            {SR.cwv}
-          </h2>
-          {!d.cwv ? (
-            <p className="text-sm text-neutral-500">{SR.cwvEmpty}</p>
-          ) : (
-            <>
-              <dl className="text-sm">
-                {(
-                  [
-                    ["LCP", d.cwv.lcp_p75, "lcp"],
-                    ["INP", d.cwv.inp_p75, "inp"],
-                    ["CLS", d.cwv.cls_p75, "cls"],
-                  ] as const
-                ).map(([label, value, key]) => (
-                  <div key={label} className="flex gap-2 py-0.5">
-                    <dt className="w-12 font-medium">{label}</dt>
-                    <dd className="text-neutral-600">
-                      {value === null ? (
-                        SR.cwvNotMeasured
-                      ) : (
-                        <>
-                          {formatCwvValueSr(value, key)}{" "}
-                          <span className="text-neutral-400">
-                            ({SR.cwvVerdict[metricVerdict(value, key)]})
-                          </span>
-                        </>
-                      )}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-              <p className="mt-3 text-xs italic text-neutral-500">
-                {d.cwv.source === "psi" ? SR.cwvLab : SR.cwvField}
-              </p>
             </>
           )}
         </section>

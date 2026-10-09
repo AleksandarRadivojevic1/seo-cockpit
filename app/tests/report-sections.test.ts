@@ -27,3 +27,14 @@ describe("report section copy", () => {
     }
   });
 });
+
+describe("site speed is not part of the SEO report", () => {
+  // Page speed (Core Web Vitals from CrUX, or a single PageSpeed Insights lab
+  // run) describes how the site performs, not how it ranks, and the report is
+  // about search. It stays on the dashboard, not in the client document.
+  it("has no site-speed copy left in the report strings", () => {
+    const speedKeys = Object.keys(SR).filter((k) => k.toLowerCase().startsWith("cwv"));
+    expect(speedKeys).toEqual([]);
+    expect(JSON.stringify(SR)).not.toMatch(/PageSpeed|Chrome UX Report|Brzina sajta/);
+  });
+});
