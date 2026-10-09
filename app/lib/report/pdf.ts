@@ -59,6 +59,25 @@ export async function resolveChromium(): Promise<string> {
   );
 }
 
+/** The loopback origin the server's own chromium prints from (see below). */
+function loopbackOrigin(requestUrl: string): string {
+  const port = process.env.PORT ?? new URL(requestUrl).port ?? "3000";
+  return `http://127.0.0.1:${port || "3000"}`;
+}
+
+/**
+ * The share page chromium prints for a client's PDF. No render token: the
+ * share token is the access, and the proxy opens `/share/*` (GET) on every
+ * host, loopback included.
+ */
+export function internalShareReportUrl(
+  token: string,
+  requestUrl: string,
+  lang: ReportLanguage
+): string {
+  return `${loopbackOrigin(requestUrl)}/share/${encodeURIComponent(token)}?lang=${lang}`;
+}
+
 /**
  * The URL chromium should print.
  *
@@ -76,8 +95,7 @@ export async function resolveChromium(): Promise<string> {
  * chose; omitted, the page uses the site's default.
  */
 export function internalReportUrl(slug: string, requestUrl: string, lang?: ReportLanguage): string {
-  const port = process.env.PORT ?? new URL(requestUrl).port ?? "3000";
-  const url = `http://127.0.0.1:${port || "3000"}/site/${encodeURIComponent(slug)}/report`;
+  const url = `${loopbackOrigin(requestUrl)}/site/${encodeURIComponent(slug)}/report`;
   const params = new URLSearchParams();
   if (lang) params.set("lang", lang);
   const auth = basicAuthConfig();
