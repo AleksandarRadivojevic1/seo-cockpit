@@ -96,6 +96,7 @@ Pure function, used by the report page and the PDF route.
 | Period, same month | `1–28. septembar 2026.` | `September 1–28, 2026` |
 | Period, same year | `9. septembar – 6. oktobar 2026.` | `September 9 – October 6, 2026` |
 | Period, across years | `20. decembar 2026. – 5. januar 2027.` | `December 20, 2026 – January 5, 2027` |
+| Period, one day | `9–9. septembar 2026.` (existing, unchanged) | `September 9, 2026` |
 | Plural | `1 klik`, `2 klika`, `5 klikova` | `1 click`, `2 clicks` |
 
 - `reportFormat(lang)` returns `{ int, decimal, percent, date, period, plural }`.
@@ -123,7 +124,9 @@ Pure function, used by the report page and the PDF route.
   button's three labels from the active strings ("Sačuvaj kao PDF" /
   "Download PDF", and the busy and error messages) as a prop. Piece 2's share
   page passes its own `href` the same way.
-- **`ReportChart`** formats its axis numbers with the active formatter.
+- **`ReportChart`** formats its axis numbers, its two date ticks (`1. jul` /
+  `July 1`) and its accessible label in the active language; `buildTrendPaths`
+  gains an optional language, Serbian by default.
 - **`TrendPointSr`** holds no Serbian text (ISO dates and numbers); its name is
   left alone.
 
