@@ -394,6 +394,26 @@ export function siteConfigBySlug(
 }
 
 /**
+ * A single active site's display metadata by property, or null when no active
+ * site has it. Share links store a property, so a removed (retired) site
+ * resolves to null and its links stop working.
+ */
+export function siteConfigByProperty(
+  property: string,
+  db: Database.Database = getDb()
+): SiteConfig | null {
+  const active = hasSitesColumn(db, "active") ? "AND active = 1" : "";
+  const row = db
+    .prepare<[string], SiteConfig>(
+      `SELECT property, slug, display_name AS displayName, brand_token AS brandToken
+       FROM sites
+       WHERE property = ? ${active}`
+    )
+    .get(property);
+  return row ?? null;
+}
+
+/**
  * A site's client-report language, from `sites.language` (written by the
  * collector). `sr` when the column doesn't exist yet, when the site isn't
  * found, or for any value other than `en`, so a report can always render.
