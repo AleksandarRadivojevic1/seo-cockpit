@@ -60,3 +60,11 @@ def test_dashboard_job_runs_vitest_tsc_and_lint_on_the_image_node():
     assert typegen < tsc
     node = str(_step_with(job, "actions/setup-node")["with"]["node-version"])
     assert node == _base_image_version("Dockerfile.dashboard", "node")
+
+
+def test_agents_job_runs_the_helper_tool_tests_on_the_image_python():
+    job = _workflow()["jobs"]["agents"]
+    assert job["defaults"]["run"]["working-directory"] == "agents/tools"
+    assert any(re.search(r"\bpytest\b", r) and "pip" not in r for r in _run_lines(job))
+    python = str(_step_with(job, "actions/setup-python")["with"]["python-version"])
+    assert python == _base_image_version("Dockerfile.collector", "python")

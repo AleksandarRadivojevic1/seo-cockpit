@@ -60,7 +60,7 @@ function ctrOf(row: AggregatedQuery): number {
   return row.impressions > 0 ? row.clicks / row.impressions : 0;
 }
 
-function toEntry(
+export function toEntry(
   query: string,
   recentRow: AggregatedQuery,
   priorRow: AggregatedQuery | undefined
