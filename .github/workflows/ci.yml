@@ -41,3 +41,18 @@ jobs:
       - run: npx tsc --noEmit
       # `next lint` is gone in Next 16; the lint script runs ESLint directly.
       - run: npm run lint
+
+  # The agents' helper tools are standard-library Python, so this job needs
+  # nothing but pytest. Same Python as the collector image, where they run.
+  agents:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agents/tools
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"   # same as the collector image
+      - run: pip install pytest
+      - run: python -m pytest -q
