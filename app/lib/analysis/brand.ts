@@ -9,9 +9,18 @@ import { addDaysUTC } from "./windows";
  * e.g. "čajš" and "cajs" compare equal after folding. Required because real
  * GSC queries arrive in both accented and unaccented spellings, and plain
  * substring matching on the raw strings misses that.
+ *
+ * `\u0111` has no combining-mark decomposition, so it is mapped to "dj" (the
+ * Serbian ASCII spelling) explicitly. Mirrors `fold_diacritics` in the
+ * collector's `seocockpit/demand.py` -- the two must agree, or a keyword the
+ * site ranks for as "rodjendan" shows up as a "ro\u0111endan" demand gap.
  */
 export function foldDiacritics(s: string): string {
-  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return s
+    .replace(/\u0111/g, "dj")
+    .replace(/\u0110/g, "Dj")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
 /**

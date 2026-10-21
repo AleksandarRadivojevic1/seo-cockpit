@@ -216,6 +216,15 @@ describe("buildAgentDigest", () => {
     expect(miss).toEqual({ requested: "sociva beograd", inRecentWindow: false, entry: null });
   });
 
+  it("tracks a đ query that GSC recorded with the dj spelling", () => {
+    query(db, RECENT_DAY, "torta za rodjendan", 8, 14.0);
+
+    const [hit] = buildAgentDigest(CONFIG, AS_OF, db, { track: ["torta za rođendan"] }).tracked;
+
+    expect(hit.inRecentWindow).toBe(true);
+    expect(hit.entry?.query).toBe("torta za rodjendan");
+  });
+
   it("tracks nothing when nothing is asked, and caps a long request", () => {
     expect(buildAgentDigest(CONFIG, AS_OF, db).tracked).toEqual([]);
     const many = Array.from({ length: 30 }, (_, i) => `upit ${i}`);

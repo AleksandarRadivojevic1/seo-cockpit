@@ -15,6 +15,13 @@ describe("foldDiacritics", () => {
   it("returns an ASCII string unchanged", () => {
     expect(foldDiacritics("hello world")).toBe("hello world");
   });
+
+  it("maps đ to dj, as the collector's fold_diacritics does", () => {
+    // đ has no combining-mark decomposition, so stripping marks leaves it in
+    // place; Serbian ASCII spelling writes it "dj".
+    expect(foldDiacritics("rođendan")).toBe("rodjendan");
+    expect(foldDiacritics("Đorđe")).toBe("Djordje");
+  });
 });
 
 describe("isBrand", () => {
