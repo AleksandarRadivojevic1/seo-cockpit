@@ -41,6 +41,12 @@ describe("buildDemandBreakdown", () => {
     expect(b.covered).toBe(1);
   });
 
+  it("treats a dj spelling of a ranked đ query as covered", () => {
+    const b = buildDemandBreakdown([row("torta za rođendan")], ["torta za rodjendan"]);
+    expect(b.gaps).toHaveLength(0);
+    expect(b.covered).toBe(1);
+  });
+
   it("keeps keywords the site does not rank for", () => {
     const b = buildDemandBreakdown([row("kontaktna sociva cena")], ["optika cajs"]);
     expect(b.gaps.map((g) => g.keyword)).toEqual(["kontaktna sociva cena"]);
